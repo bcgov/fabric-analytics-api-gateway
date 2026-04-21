@@ -1,0 +1,58 @@
+name: .Infra Lint
+
+on:
+  workflow_call:
+    inputs:
+      terraform_root:
+        description: Terraform root directory to validate
+        required: false
+        default: infra
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-lint:
+    name: Terraform Format and Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+
+      - name: Terraform fmt check
+        shell: bash
+        run: terraform fmt -check -recursive "${{ inputs.terraform_root }}"
+
+      - name: Terraform init
+        shell: bash
+        run: terraform -chdir="${{ inputs.terraform_root }}" init -backend=false
+
+      - name: Terraform validate
+        shell: bash
+        run: terraform -chdir="${{ inputs.terraform_root }}" validate
+
+      - name: Bash parse check
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' script; do
+            echo "Parsing: $script"
+            bash -n "$script"
+          done < <(find "${{ inputs.terraform_root }}" -type f -name '*.sh' -print0)
+
+      - name: Run script test suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for test in "${{ inputs.terraform_root }}"/scripts/*.test.sh; do
+            echo "Running: $test"
+            chmod +x "$test"
+            bash "$test"
+          done

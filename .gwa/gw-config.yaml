@@ -1,0 +1,55 @@
+# APS resource-based gateway configuration scaffold for the Fabric analytics spike.
+# Replace the remaining placeholder values before publishing with `gwa apply -i gw-config.yaml`.
+# This file intentionally keeps identity plugins as TODOs until the real issuer,
+# audience, client, and redirect values are confirmed.
+
+kind: GatewayService
+name: fabric-analytics-dab
+tags:
+  - ns.gw-3c77e
+host: fabric-dab.internal.invalid
+port: 443
+protocol: https
+path: /
+retries: 0
+connect_timeout: 60000
+write_timeout: 60000
+read_timeout: 60000
+routes:
+  - name: fabric-analytics-dab-route
+    tags:
+      - ns.gw-3c77e
+    hosts:
+      - replace-me.api.gov.bc.ca
+    paths:
+      - /
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - HEAD
+      - CONNECT
+      - OPTIONS
+    strip_path: false
+    https_redirect_status_code: 426
+    path_handling: v0
+    request_buffering: true
+    response_buffering: false
+plugins:
+  - name: correlation-id
+    tags:
+      - ns.gw-3c77e
+    enabled: true
+    config:
+      echo_downstream: true
+      generator: uuid
+      header_name: x-correlation-id
+
+# TODO: add an `oidc` plugin block for BC Gov SSO once the issuer, client,
+# redirect, and claim mapping requirements are confirmed.
+# TODO: add a `jwt` or `jwt-keycloak` plugin block for Entra-based consumers once
+# issuer, audience, and JWKS behavior are confirmed.
+# TODO: add `rate-limiting`, `acl`, `request-transformer`, and `proxy-cache`
+# only after the DAB contract and consumer groups are finalized.

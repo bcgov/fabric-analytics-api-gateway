@@ -1,0 +1,45 @@
+name: Infra Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: Target environment
+        required: true
+        default: test
+        type: choice
+        options:
+          - dev
+          - test
+          - tools
+          - prod
+      command:
+        description: Terraform wrapper command
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      tfvars_file:
+        description: Optional tfvars file path committed in the repo
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-${{ inputs.environment_name }}
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    uses: ./.github/workflows/.infra.yml
+    with:
+      environment_name: ${{ inputs.environment_name }}
+      command: ${{ inputs.command }}
+      tfvars_file: ${{ inputs.tfvars_file }}
+    secrets: inherit
