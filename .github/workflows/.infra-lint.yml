@@ -51,8 +51,10 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
+          for script in "${{ inputs.terraform_root }}"/scripts/*.sh; do
+            chmod +x "$script"
+          done
           for test in "${{ inputs.terraform_root }}"/scripts/*.test.sh; do
             echo "Running: $test"
-            chmod +x "$test"
             bash "$test"
           done
