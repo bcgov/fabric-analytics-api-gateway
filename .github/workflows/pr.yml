@@ -42,6 +42,11 @@ jobs:
         ${{github.event.number}}-${{ github.run_number }}
         latest
   deploy:
+    permissions:
+      id-token: write # This is required for requesting the JWT
+      contents: write # This is required for actions/checkout
+      packages: write
+      pull-requests: write
     needs: [ lint, builds ]
     if: (!github.event.pull_request.head.repo.fork)
     uses: ./.github/workflows/.infra.yml
