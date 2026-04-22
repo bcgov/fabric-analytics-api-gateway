@@ -55,3 +55,4 @@ jobs:
       command: apply
       dab_image: ghcr.io/${{github.repository}}/dab:${{github.event.number}}-${{
         github.run_number }}
+    secrets: inherit
