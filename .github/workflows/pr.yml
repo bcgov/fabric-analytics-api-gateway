@@ -26,8 +26,8 @@ jobs:
     # though .builds.yml also declares them.
     # https://docs.github.com/en/actions/using-workflows/reusing-workflows#access-and-permissions
     permissions:
-      contents: write
-      id-token: write
+      id-token: write # This is required for requesting the JWT
+      contents: write # This is required for actions/checkout
       packages: write
       pull-requests: write
     concurrency:
