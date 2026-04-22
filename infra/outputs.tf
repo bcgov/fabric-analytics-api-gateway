@@ -1,3 +1,28 @@
+output "application_gateway_id" {
+  description = "Application Gateway resource ID when the Application Gateway module is enabled."
+  value       = try(module.application_gateway[0].application_gateway_id, null)
+}
+
+output "application_gateway_name" {
+  description = "Application Gateway resource name when the Application Gateway module is enabled."
+  value       = try(module.application_gateway[0].application_gateway_name, null)
+}
+
+output "application_gateway_private_dns_zone_name" {
+  description = "Private DNS zone name used to resolve the internal ACA environment from the Application Gateway subnet."
+  value       = try(module.application_gateway[0].application_gateway_private_dns_zone_name, null)
+}
+
+output "application_gateway_public_ip_address" {
+  description = "Public IP address bound to the Application Gateway listener when the module is enabled."
+  value       = try(module.application_gateway[0].application_gateway_public_ip_address, null)
+}
+
+output "application_gateway_subnet_id" {
+  description = "Application Gateway subnet ID when provided or exposed by the network scaffold."
+  value       = var.application_gateway_subnet_id != null ? var.application_gateway_subnet_id : try(module.network[0].application_gateway_subnet_id, null)
+}
+
 output "resource_group_name" {
   description = "Resource group name used by the scaffold."
   value       = local.resource_group_name
@@ -73,6 +98,36 @@ output "kong_latest_fqdn" {
   description = "Kong Edge Runtime ingress FQDN when the Container Apps module is enabled."
   value       = try(module.container_apps[0].kong_latest_fqdn, null)
   sensitive   = true
+}
+
+output "kong_key_vault_id" {
+  description = "Key Vault ID used for Kong bootstrap secrets when the bootstrap flow is enabled."
+  value       = try(module.key_vault[0].key_vault_id, null)
+}
+
+output "kong_key_vault_name" {
+  description = "Key Vault name used for Kong bootstrap secrets when the bootstrap flow is enabled."
+  value       = try(module.key_vault[0].key_vault_name, null)
+}
+
+output "kong_bootstrap_job_name" {
+  description = "Manual Azure Container Apps Job name used to bootstrap Kong SDX secrets into Key Vault."
+  value       = try(module.container_apps[0].kong_bootstrap_job_name, null)
+}
+
+output "kong_key_vault_bootstrap_identity_id" {
+  description = "User-assigned identity resource ID used by the ACA bootstrap job to write Key Vault secrets."
+  value       = try(module.key_vault[0].bootstrap_writer_identity_id, null)
+}
+
+output "kong_key_vault_secret_prefix" {
+  description = "Secret name prefix used for Kong bootstrap material in Key Vault when the bootstrap flow is enabled."
+  value       = local.create_key_vault_count == 1 ? local.kong_key_vault_secret_prefix : null
+}
+
+output "kong_key_vault_uri" {
+  description = "Key Vault URI used for Kong bootstrap secrets when the bootstrap flow is enabled."
+  value       = try(module.key_vault[0].vault_uri, null)
 }
 
 output "kong_route_host" {

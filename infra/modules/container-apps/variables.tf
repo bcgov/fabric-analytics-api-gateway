@@ -48,10 +48,16 @@ variable "dab_container_app_name" {
   default     = null
 }
 
+variable "dab_database_type" {
+  description = "Database type exposed to DAB via the DB_TYPE environment variable. Use dwsql for the Fabric SQL analytics endpoint path in this repo."
+  type        = string
+  default     = "dwsql"
+}
+
 variable "dab_external_ingress_enabled" {
   description = "Whether DAB should expose ingress outside the Container Apps environment."
   type        = bool
-  default     = false
+  default     = true
   nullable    = false
 }
 
@@ -59,6 +65,13 @@ variable "dab_image" {
   description = "Container image for the DAB workload."
   type        = string
   default     = null
+}
+
+variable "dab_sql_connection_string" {
+  description = "Fabric SQL connection string exposed to DAB through the SQL_CONN_STRING ACA secret-backed environment variable."
+  type        = string
+  default     = null
+  sensitive   = true
 }
 
 variable "dab_target_port" {
@@ -82,6 +95,13 @@ variable "deploy_kong_app" {
   nullable    = false
 }
 
+variable "deploy_kong_bootstrap_job" {
+  description = "Whether to create the manual ACA job that bootstraps Kong SDX secrets into Key Vault."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "enable_system_assigned_identity" {
   description = "Whether the container apps should use system-assigned managed identities."
   type        = bool
@@ -95,11 +115,29 @@ variable "kong_container_app_name" {
   default     = null
 }
 
+variable "kong_bootstrap_job_identity_client_id" {
+  description = "Client ID of the user-assigned identity used by the ACA bootstrap job to authenticate to Azure."
+  type        = string
+  default     = null
+}
+
+variable "kong_bootstrap_job_identity_id" {
+  description = "Resource ID of the user-assigned identity used by the ACA bootstrap job to write Key Vault secrets."
+  type        = string
+  default     = null
+}
+
 variable "kong_client_tls_certificate_pem" {
   description = "PEM-encoded SDX edge client certificate mounted into the Kong runtime."
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "kong_client_tls_certificate_secret_id" {
+  description = "Versioned or versionless Key Vault secret ID for the SDX edge client certificate."
+  type        = string
+  default     = null
 }
 
 variable "kong_client_tls_private_key_pem" {
@@ -109,6 +147,12 @@ variable "kong_client_tls_private_key_pem" {
   sensitive   = true
 }
 
+variable "kong_client_tls_private_key_secret_id" {
+  description = "Versioned or versionless Key Vault secret ID for the SDX edge client private key."
+  type        = string
+  default     = null
+}
+
 variable "kong_edge_ca_pem" {
   description = "PEM-encoded SDX edge CA bundle used by the runtime for local trust material."
   type        = string
@@ -116,8 +160,14 @@ variable "kong_edge_ca_pem" {
   sensitive   = true
 }
 
+variable "kong_edge_ca_secret_id" {
+  description = "Versioned or versionless Key Vault secret ID for the SDX edge CA bundle."
+  type        = string
+  default     = null
+}
+
 variable "kong_external_ingress_enabled" {
-  description = "Whether Kong should expose ingress outside the Container Apps environment."
+  description = "Whether Kong should expose ingress outside the Container Apps environment. Leave false for the Application Gateway-backed SDX path because Kong stays private behind the internal ACA environment."
   type        = bool
   default     = false
   nullable    = false
@@ -129,6 +179,24 @@ variable "kong_image" {
   default     = "ghcr.io/bcgov/aps-devops/sdx-access-point:3.9-57ca71e3"
 }
 
+variable "kong_key_vault_name" {
+  description = "Key Vault name used by the ACA bootstrap job when writing Kong bootstrap secrets."
+  type        = string
+  default     = null
+}
+
+variable "kong_key_vault_secret_prefix" {
+  description = "Key Vault secret prefix used by the ACA bootstrap job when writing Kong bootstrap material."
+  type        = string
+  default     = null
+}
+
+variable "kong_key_vault_secret_identity_id" {
+  description = "User-assigned managed identity resource ID used by the Kong container app to resolve Key Vault secret references."
+  type        = string
+  default     = null
+}
+
 variable "kong_mtls_required" {
   description = "Whether the SDX edge runtime requires mTLS from clients (sets KONG_NGINX_PROXY_SSL_VERIFY_CLIENT=on and verify_depth=3). Matches the sdx-edge Helm chart's mtls_required value."
   type        = bool
@@ -137,9 +205,10 @@ variable "kong_mtls_required" {
 }
 
 variable "kong_nginx_proxy_include_config" {
-  description = "Rendered nginx include content mounted for the SDX edge runtime. Replace the placeholder session secret before real deployments."
+  description = "Rendered nginx include content mounted for the SDX edge runtime. Defaults include a larger proxy header buffer for forwarded client certificates. Replace the placeholder session secret before real deployments."
   type        = string
   default     = <<-EOT
+  large_client_header_buffers      8 24k;
   set $session_storage             shm;
   set $session_secret              replace-me-session-secret;
   EOT
@@ -183,6 +252,12 @@ variable "kong_server_tls_certificate_pem" {
   sensitive   = true
 }
 
+variable "kong_server_tls_certificate_secret_id" {
+  description = "Versioned or versionless Key Vault secret ID for the SDX edge server certificate."
+  type        = string
+  default     = null
+}
+
 variable "kong_server_tls_private_key_pem" {
   description = "PEM-encoded private key for the SDX edge server certificate."
   type        = string
@@ -190,8 +265,14 @@ variable "kong_server_tls_private_key_pem" {
   sensitive   = true
 }
 
+variable "kong_server_tls_private_key_secret_id" {
+  description = "Versioned or versionless Key Vault secret ID for the SDX edge server private key."
+  type        = string
+  default     = null
+}
+
 variable "kong_target_port" {
-  description = "Ingress target port for Kong. The SDX edge runtime listens on 8000 for internal HTTP and 8443 for direct TLS."
+  description = "Ingress target port for Kong inside ACA. The SDX edge runtime listens on 8000 for internal HTTP and 8443 for direct TLS, while the public :443 edge in this scaffold is owned by Application Gateway rather than ACA external ingress."
   type        = number
   default     = 8000
   nullable    = false
@@ -238,6 +319,25 @@ variable "min_replicas" {
 
 variable "private_endpoint_subnet_id" {
   description = "Subnet ID used for the Container Apps environment private endpoint."
+  type        = string
+  default     = null
+}
+
+variable "sdx_bootstrap_token" {
+  description = "One-time APS bootstrap token used to request the Kong edge certificate during the ACA bootstrap flow."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "sdx_client_ca_url" {
+  description = "SDX client CA URL used by the ACA bootstrap job to sign the edge certificate."
+  type        = string
+  default     = null
+}
+
+variable "sdx_server_ip_san" {
+  description = "Optional IP SAN added to the ACA bootstrap certificate request."
   type        = string
   default     = null
 }

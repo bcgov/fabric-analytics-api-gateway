@@ -1,0 +1,52 @@
+name: Infra PR
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+
+  lint:
+    # no forks allowed
+    if: (!github.event.pull_request.head.repo.fork)
+    uses: ./.github/workflows/.infra-lint.yml
+
+  builds:
+    if: (!github.event.pull_request.head.repo.fork)
+    # bcgov/action-builder-ghcr needs write access to GHCR Packages, id-token
+    # for OIDC-based provenance attestations, and pull-requests for the
+    # PR-tagging behavior. Reusable workflows inherit only the intersection of
+    # the caller's permissions, so the caller has to grant them here even
+    # though .builds.yml also declares them.
+    # https://docs.github.com/en/actions/using-workflows/reusing-workflows#access-and-permissions
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+      pull-requests: write
+    concurrency:
+      # Cancel in progress for PR open and close
+      group: builds-${{ github.event.number || 'latest' }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/.builds.yml
+    with:
+      tags: |
+        ${{ github.event.number || 'manual' }}
+        manual-${{ github.run_number }}
+        ${{github.event.number}}-${{ github.run_number }}
+        latest
+  deploy:
+    needs: [ lint, builds ]
+    if: (!github.event.pull_request.head.repo.fork)
+    uses: ./.github/workflows/.infra.yml
+    with:
+      environment_name: test
+      command: apply
+      dab_image: ghcr.io/${{github.repository}}/dab:${{github.event.number}}-${{
+        github.run_number }}

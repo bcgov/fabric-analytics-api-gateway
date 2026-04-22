@@ -17,6 +17,11 @@ on:
         required: false
         default: ""
         type: string
+      dab_image:
+        description: DAB image to deploy (overrides TF_VAR_dab_image)
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -43,6 +48,12 @@ jobs:
         with:
           terraform_version: 1.12.2
 
+      - name: Setup Container Apps CLI Extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          az extension add --name containerapp --upgrade --only-show-errors
+
       - name: Make wrapper executable
         shell: bash
         run: chmod +x ./infra/deploy-terraform.sh
@@ -52,33 +63,39 @@ jobs:
         env:
           CI: "true"
           TF_VAR_app_env: ${{ inputs.environment_name }}
+          TF_VAR_dab_database_type: "dwsql"
+          TF_VAR_dab_image: ${{ inputs.dab_image }}
+          TF_VAR_dab_sql_connection_string: ${{ secrets.DAB_SQL_CONNECTION_STRING }}
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_deploy_dab_app: "true"
+          TF_VAR_deploy_kong_app: "false"
+          TF_VAR_deploy_kong_bootstrap_job: "false"
+          TF_VAR_enable_application_gateway: "false"
+          TF_VAR_enable_container_apps: "true"
+          TF_VAR_enable_front_door: "false"
+          TF_VAR_enable_key_vault: "false"
+          TF_VAR_enable_kong_key_vault_bootstrap: "false"
+          TF_VAR_enable_monitoring: "true"
+          TF_VAR_enable_network: "true"
           TF_VAR_use_oidc: "true"
-          BACKEND_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
-          BACKEND_STORAGE_ACCOUNT: ${{ vars.TFSTATE_STORAGE_ACCOUNT }}
-          BACKEND_CONTAINER_NAME: ${{ vars.TFSTATE_CONTAINER_NAME }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER_NAME: tfstate
           BACKEND_STATE_KEY: fabric-analytics-api-gateway/${{ inputs.environment_name }}.tfstate
+          KONG_KEY_VAULT_NAME: ${{ vars.KONG_KEY_VAULT_NAME }}
+          KONG_KEY_VAULT_SECRET_PREFIX: ${{ vars.KONG_KEY_VAULT_SECRET_PREFIX }}
+          KONG_ROUTE_HOST: ${{ vars.KONG_ROUTE_HOST }}
+          KONG_RUNTIME_GROUP_NAME: ${{ vars.KONG_RUNTIME_GROUP_NAME }}
+          KONG_SDX_CONTROL_URL: ${{ vars.KONG_SDX_CONTROL_URL }}
+          SDX_BOOTSTRAP_TOKEN: ${{ secrets.SDX_BOOTSTRAP_TOKEN }}
+          SDX_CLIENT_CA_URL: ${{ vars.SDX_CLIENT_CA_URL }}
+          SDX_SERVER_IP_SAN: ${{ vars.SDX_SERVER_IP_SAN }}
           # Pass workflow_dispatch inputs via env to avoid bash script injection.
           # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
           INPUT_COMMAND: ${{ inputs.command }}
-          INPUT_TFVARS_FILE: ${{ inputs.tfvars_file }}
+          TFVARS_FILE: ${{ inputs.tfvars_file }}
         run: |
           set -euo pipefail
-
-          # Whitelist the command instead of trusting the input verbatim.
-          case "$INPUT_COMMAND" in
-            plan|apply) ;;
-            *)
-              echo "Refusing unsupported command: $INPUT_COMMAND" >&2
-              exit 1
-              ;;
-          esac
-
-          extra_args=()
-          if [[ -n "$INPUT_TFVARS_FILE" && -f "$INPUT_TFVARS_FILE" ]]; then
-            extra_args+=("-var-file=$INPUT_TFVARS_FILE")
-          fi
-
-          ./infra/deploy-terraform.sh "$INPUT_COMMAND" "${extra_args[@]}"
+          ./infra/deploy-terraform.sh "$INPUT_COMMAND"

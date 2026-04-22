@@ -15,6 +15,67 @@ variable "app_name" {
   default     = "fabric-analytics"
 }
 
+variable "application_gateway_frontend_certificate_password" {
+  description = "Password for the base64-encoded PFX certificate bound to the Application Gateway HTTPS listener."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "application_gateway_frontend_certificate_pfx_base64" {
+  description = "Base64-encoded PFX certificate presented by the Application Gateway HTTPS listener."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "application_gateway_host_name" {
+  description = "Optional public host name bound to the Application Gateway HTTPS listener. Defaults to kong_route_host when omitted."
+  type        = string
+  default     = null
+}
+
+variable "application_gateway_max_capacity" {
+  description = "Maximum autoscale capacity for the Application Gateway v2 deployment."
+  type        = number
+  default     = 2
+}
+
+variable "application_gateway_min_capacity" {
+  description = "Minimum autoscale capacity for the Application Gateway v2 deployment."
+  type        = number
+  default     = 1
+}
+
+variable "application_gateway_name" {
+  description = "Override for the Application Gateway resource name."
+  type        = string
+  default     = null
+}
+
+variable "application_gateway_public_ip_name" {
+  description = "Override for the Application Gateway public IP resource name."
+  type        = string
+  default     = null
+}
+
+variable "application_gateway_sku_name" {
+  description = "Application Gateway v2 SKU name. Use Standard_v2 or WAF_v2."
+  type        = string
+  default     = "WAF_v2"
+
+  validation {
+    condition     = contains(["Standard_v2", "WAF_v2"], var.application_gateway_sku_name)
+    error_message = "application_gateway_sku_name must be Standard_v2 or WAF_v2."
+  }
+}
+
+variable "application_gateway_subnet_id" {
+  description = "Existing dedicated Application Gateway subnet ID when it is managed outside the network module."
+  type        = string
+  default     = null
+}
+
 variable "client_id" {
   description = "Azure client ID for GitHub Actions OIDC or other non-interactive auth."
   type        = string
@@ -58,6 +119,12 @@ variable "dab_container_app_name" {
   default     = null
 }
 
+variable "dab_database_type" {
+  description = "Database type exposed to DAB via the DB_TYPE environment variable. Use dwsql for the Fabric SQL analytics endpoint path in this repo."
+  type        = string
+  default     = "dwsql"
+}
+
 variable "dab_external_ingress_enabled" {
   description = "Whether the DAB Container App should expose external ingress."
   type        = bool
@@ -68,6 +135,13 @@ variable "dab_image" {
   description = "Container image for the DAB deployment."
   type        = string
   default     = null
+}
+
+variable "dab_sql_connection_string" {
+  description = "Fabric SQL connection string exposed to DAB through the SQL_CONN_STRING ACA secret-backed environment variable."
+  type        = string
+  default     = null
+  sensitive   = true
 }
 
 variable "dab_target_port" {
@@ -88,6 +162,18 @@ variable "deploy_kong_app" {
   default     = false
 }
 
+variable "deploy_kong_bootstrap_job" {
+  description = "Create the manual ACA bootstrap job when true. This can be enabled independently after the Key Vault and Container Apps environment exist."
+  type        = bool
+  default     = false
+}
+
+variable "enable_application_gateway" {
+  description = "Enable Azure Application Gateway in front of the internal Container Apps environment for the Kong SDX edge runtime."
+  type        = bool
+  default     = false
+}
+
 variable "enable_container_apps" {
   description = "Enable Azure Container Apps environment scaffolding."
   type        = bool
@@ -95,7 +181,19 @@ variable "enable_container_apps" {
 }
 
 variable "enable_front_door" {
-  description = "Enable Azure Front Door scaffolding."
+  description = "Enable legacy Azure Front Door scaffolding for non-SDX experiments. This must remain false when kong_mtls_required is true."
+  type        = bool
+  default     = false
+}
+
+variable "enable_key_vault" {
+  description = "Enable the Kong bootstrap Key Vault module so it can be applied independently from the ACA bootstrap job."
+  type        = bool
+  default     = false
+}
+
+variable "enable_kong_key_vault_bootstrap" {
+  description = "Legacy convenience toggle that enables both the Kong bootstrap Key Vault module and the ACA bootstrap job together. Prefer enable_key_vault and deploy_kong_bootstrap_job for step-by-step applies."
   type        = bool
   default     = false
 }
@@ -217,7 +315,7 @@ variable "kong_edge_ca_pem" {
 }
 
 variable "kong_external_ingress_enabled" {
-  description = "Whether the Kong Container App should expose external ingress."
+  description = "Whether the Kong Container App should expose external ingress. Leave false for the Application Gateway-backed SDX path because Kong stays private behind the internal ACA environment."
   type        = bool
   default     = false
 }
@@ -228,6 +326,18 @@ variable "kong_image" {
   default     = "ghcr.io/bcgov/aps-devops/sdx-access-point:3.9-57ca71e3"
 }
 
+variable "kong_key_vault_name" {
+  description = "Optional override for the Key Vault that stores Kong bootstrap secrets."
+  type        = string
+  default     = null
+}
+
+variable "kong_key_vault_secret_prefix" {
+  description = "Optional override for the Key Vault secret prefix used for Kong bootstrap material. Defaults to sdx-edge-<runtime-group> when the runtime group name is set."
+  type        = string
+  default     = null
+}
+
 variable "kong_mtls_required" {
   description = "Whether the SDX edge runtime requires mTLS from clients. Maps to the sdx-edge Helm chart's mtls_required value."
   type        = bool
@@ -236,9 +346,10 @@ variable "kong_mtls_required" {
 }
 
 variable "kong_nginx_proxy_include_config" {
-  description = "Rendered nginx include content mounted for the SDX edge runtime. Replace the placeholder session secret before real deployments."
+  description = "Rendered nginx include content mounted for the SDX edge runtime. Defaults include a larger proxy header buffer for forwarded client certificates. Replace the placeholder session secret before real deployments."
   type        = string
   default     = <<-EOT
+  large_client_header_buffers      8 24k;
   set $session_storage             shm;
   set $session_secret              replace-me-session-secret;
   EOT
@@ -290,7 +401,7 @@ variable "kong_server_tls_private_key_pem" {
 }
 
 variable "kong_target_port" {
-  description = "Ingress target port for the Kong Container App. The SDX edge runtime listens on 8000 for internal HTTP and 8443 for direct TLS."
+  description = "Ingress target port for the Kong Container App inside ACA. The SDX edge runtime listens on 8000 for internal HTTP and 8443 for direct TLS, while the public :443 edge in this scaffold is owned by Application Gateway rather than ACA external ingress."
   type        = number
   default     = 8000
 }
@@ -339,6 +450,25 @@ variable "repo_name" {
 
 variable "resource_group_name" {
   description = "Existing or to-be-created resource group name."
+  type        = string
+  default     = null
+}
+
+variable "sdx_bootstrap_token" {
+  description = "One-time APS bootstrap token used to request the Kong edge certificate during the ACA bootstrap flow."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "sdx_client_ca_url" {
+  description = "SDX client CA URL used by the ACA bootstrap job to sign the edge certificate."
+  type        = string
+  default     = null
+}
+
+variable "sdx_server_ip_san" {
+  description = "Optional IP SAN added to the ACA bootstrap certificate request."
   type        = string
   default     = null
 }

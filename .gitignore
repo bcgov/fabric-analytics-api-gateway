@@ -34,3 +34,5 @@ replay_pid*
 terraform.tfvars
 *.auto.tfvars
 *.lock.hcl
+**/.tmp/
+**/.terraform/

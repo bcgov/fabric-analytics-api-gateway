@@ -4,6 +4,69 @@ data "azurerm_virtual_network" "main" {
   resource_group_name = var.vnet_resource_group_name
 }
 
+resource "azurerm_network_security_group" "application_gateway" {
+  count = local.create_subnets_count
+
+  name                = "${var.resource_group_name}-agw-nsg"
+  location            = var.location
+  resource_group_name = var.vnet_resource_group_name
+
+  security_rule {
+    name                       = "AllowHttpsInbound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = local.application_gateway_subnet_cidr
+  }
+
+  security_rule {
+    name                       = "AllowGatewayManagerInbound"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "65200-65535"
+    source_address_prefix      = "GatewayManager"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowAzureLoadBalancerInbound"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowInternetOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "Internet"
+  }
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
+}
+
 resource "azurerm_network_security_group" "privateendpoints" {
   count = local.create_subnets_count
 
@@ -11,8 +74,9 @@ resource "azurerm_network_security_group" "privateendpoints" {
   location            = var.location
   resource_group_name = var.vnet_resource_group_name
 
-  # Allow Inbound from Azure Front Door backends through Private Link to private
-  # endpoints in this subnet on 443. Provider requires source/destination prefixes.
+  # Legacy optional rule for an Azure Front Door private-link path. This is not
+  # part of the SDX mTLS edge design, but is kept while the frontdoor module
+  # remains available for non-SDX experiments.
   security_rule {
     name                       = "AllowInboundFromFrontDoor"
     priority                   = 100
@@ -32,6 +96,26 @@ resource "azurerm_network_security_group" "privateendpoints" {
       tags
     ]
   }
+}
+
+
+resource "azapi_resource" "application_gateway_subnet" {
+  count                     = local.create_subnets_count
+  type                      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
+  name                      = var.application_gateway_subnet_name
+  parent_id                 = data.azurerm_virtual_network.main[0].id
+  locks                     = [data.azurerm_virtual_network.main[0].id]
+  schema_validation_enabled = false
+  body = {
+    properties = {
+      addressPrefix         = local.application_gateway_subnet_cidr
+      defaultOutboundAccess = false
+      networkSecurityGroup = {
+        id = azurerm_network_security_group.application_gateway[0].id
+      }
+    }
+  }
+  response_export_values = ["*"]
 }
 
 
@@ -62,14 +146,16 @@ resource "azurerm_network_security_group" "container_apps" {
 }
 # Container Apps subnet for Container Apps Environment
 resource "azapi_resource" "container_apps_subnet" {
-  count     = local.create_subnets_count
-  type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
-  name      = var.container_apps_subnet_name
-  parent_id = data.azurerm_virtual_network.main[0].id
-  locks     = [data.azurerm_virtual_network.main[0].id]
+  count                     = local.create_subnets_count
+  type                      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
+  name                      = var.container_apps_subnet_name
+  parent_id                 = data.azurerm_virtual_network.main[0].id
+  locks                     = [data.azurerm_virtual_network.main[0].id]
+  schema_validation_enabled = false
   body = {
     properties = {
-      addressPrefix = local.container_apps_subnet_cidr
+      addressPrefix         = local.container_apps_subnet_cidr
+      defaultOutboundAccess = false
       networkSecurityGroup = {
         id = azurerm_network_security_group.container_apps[0].id
       }
@@ -87,14 +173,16 @@ resource "azapi_resource" "container_apps_subnet" {
 }
 
 resource "azapi_resource" "privateendpoints_subnet" {
-  count     = local.create_subnets_count
-  type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
-  name      = var.private_endpoint_subnet_name
-  parent_id = data.azurerm_virtual_network.main[0].id
-  locks     = [data.azurerm_virtual_network.main[0].id]
+  count                     = local.create_subnets_count
+  type                      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
+  name                      = var.private_endpoint_subnet_name
+  parent_id                 = data.azurerm_virtual_network.main[0].id
+  locks                     = [data.azurerm_virtual_network.main[0].id]
+  schema_validation_enabled = false
   body = {
     properties = {
-      addressPrefix = local.private_endpoints_subnet_cidr
+      addressPrefix         = local.private_endpoints_subnet_cidr
+      defaultOutboundAccess = false
       networkSecurityGroup = {
         id = azurerm_network_security_group.privateendpoints[0].id
       }

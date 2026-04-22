@@ -36,3 +36,8 @@ output "kong_route_host" {
   description = "Configured SDX edge route host for the Kong container app"
   value       = local.kong_route_host
 }
+
+output "kong_bootstrap_job_name" {
+  description = "Manual Azure Container Apps Job name used to bootstrap Kong SDX secrets into Key Vault"
+  value       = try(azurerm_container_app_job.kong_bootstrap[0].name, null)
+}

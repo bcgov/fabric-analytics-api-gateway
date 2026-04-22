@@ -21,6 +21,18 @@ resource "terraform_data" "container_apps_preconditions" {
       error_message = "log_analytics_workspace_id must be set (enable the monitoring module) when the container-apps module is enabled."
     }
     precondition {
+      condition     = !var.deploy_dab_app || (var.dab_image != null && trimspace(var.dab_image) != "")
+      error_message = "dab_image must be set when deploy_dab_app is true."
+    }
+    precondition {
+      condition     = !var.deploy_dab_app || trimspace(var.dab_database_type) != ""
+      error_message = "dab_database_type must be set when deploy_dab_app is true so the DAB config can resolve @env('DB_TYPE')."
+    }
+    precondition {
+      condition     = !var.deploy_dab_app || (var.dab_sql_connection_string != null && trimspace(nonsensitive(var.dab_sql_connection_string)) != "")
+      error_message = "dab_sql_connection_string must be set when deploy_dab_app is true so the DAB config can resolve @env('SQL_CONN_STRING')."
+    }
+    precondition {
       condition     = !var.deploy_kong_app || (var.kong_runtime_group_name != null && trimspace(var.kong_runtime_group_name) != "")
       error_message = "kong_runtime_group_name must be set when deploy_kong_app is true. The APS SDX runtime group docs require a short runtime-group identifier."
     }
@@ -37,24 +49,72 @@ resource "terraform_data" "container_apps_preconditions" {
       error_message = "kong_public_ca_pem must be set when deploy_kong_app is true."
     }
     precondition {
-      condition     = !var.deploy_kong_app || (var.kong_edge_ca_pem != null && trimspace(var.kong_edge_ca_pem) != "")
-      error_message = "kong_edge_ca_pem must be set when deploy_kong_app is true."
+      condition     = !var.deploy_kong_app || local.kong_uses_key_vault_secrets || (var.kong_edge_ca_pem != null && trimspace(var.kong_edge_ca_pem) != "")
+      error_message = "kong_edge_ca_pem must be set when deploy_kong_app is true unless kong_edge_ca_secret_id is supplied through the Key Vault bootstrap flow."
     }
     precondition {
-      condition     = !var.deploy_kong_app || (var.kong_client_tls_certificate_pem != null && trimspace(var.kong_client_tls_certificate_pem) != "")
-      error_message = "kong_client_tls_certificate_pem must be set when deploy_kong_app is true."
+      condition     = !var.deploy_kong_app || local.kong_uses_key_vault_secrets || (var.kong_client_tls_certificate_pem != null && trimspace(var.kong_client_tls_certificate_pem) != "")
+      error_message = "kong_client_tls_certificate_pem must be set when deploy_kong_app is true unless kong_client_tls_certificate_secret_id is supplied through the Key Vault bootstrap flow."
     }
     precondition {
-      condition     = !var.deploy_kong_app || (var.kong_client_tls_private_key_pem != null && trimspace(var.kong_client_tls_private_key_pem) != "")
-      error_message = "kong_client_tls_private_key_pem must be set when deploy_kong_app is true."
+      condition     = !var.deploy_kong_app || local.kong_uses_key_vault_secrets || (var.kong_client_tls_private_key_pem != null && trimspace(var.kong_client_tls_private_key_pem) != "")
+      error_message = "kong_client_tls_private_key_pem must be set when deploy_kong_app is true unless kong_client_tls_private_key_secret_id is supplied through the Key Vault bootstrap flow."
     }
     precondition {
-      condition     = !var.deploy_kong_app || (var.kong_server_tls_certificate_pem != null && trimspace(var.kong_server_tls_certificate_pem) != "")
-      error_message = "kong_server_tls_certificate_pem must be set when deploy_kong_app is true."
+      condition     = !var.deploy_kong_app || local.kong_uses_key_vault_secrets || (var.kong_server_tls_certificate_pem != null && trimspace(var.kong_server_tls_certificate_pem) != "")
+      error_message = "kong_server_tls_certificate_pem must be set when deploy_kong_app is true unless kong_server_tls_certificate_secret_id is supplied through the Key Vault bootstrap flow."
     }
     precondition {
-      condition     = !var.deploy_kong_app || (var.kong_server_tls_private_key_pem != null && trimspace(var.kong_server_tls_private_key_pem) != "")
-      error_message = "kong_server_tls_private_key_pem must be set when deploy_kong_app is true."
+      condition     = !var.deploy_kong_app || local.kong_uses_key_vault_secrets || (var.kong_server_tls_private_key_pem != null && trimspace(var.kong_server_tls_private_key_pem) != "")
+      error_message = "kong_server_tls_private_key_pem must be set when deploy_kong_app is true unless kong_server_tls_private_key_secret_id is supplied through the Key Vault bootstrap flow."
+    }
+    precondition {
+      condition     = !var.deploy_kong_app || !local.kong_uses_key_vault_secrets || (var.kong_client_tls_certificate_secret_id != null && trimspace(var.kong_client_tls_certificate_secret_id) != "")
+      error_message = "kong_client_tls_certificate_secret_id must be set when deploy_kong_app is true and kong_key_vault_secret_identity_id is supplied."
+    }
+    precondition {
+      condition     = !var.deploy_kong_app || !local.kong_uses_key_vault_secrets || (var.kong_client_tls_private_key_secret_id != null && trimspace(var.kong_client_tls_private_key_secret_id) != "")
+      error_message = "kong_client_tls_private_key_secret_id must be set when deploy_kong_app is true and kong_key_vault_secret_identity_id is supplied."
+    }
+    precondition {
+      condition     = !var.deploy_kong_app || !local.kong_uses_key_vault_secrets || (var.kong_edge_ca_secret_id != null && trimspace(var.kong_edge_ca_secret_id) != "")
+      error_message = "kong_edge_ca_secret_id must be set when deploy_kong_app is true and kong_key_vault_secret_identity_id is supplied."
+    }
+    precondition {
+      condition     = !var.deploy_kong_app || !local.kong_uses_key_vault_secrets || (var.kong_server_tls_certificate_secret_id != null && trimspace(var.kong_server_tls_certificate_secret_id) != "")
+      error_message = "kong_server_tls_certificate_secret_id must be set when deploy_kong_app is true and kong_key_vault_secret_identity_id is supplied."
+    }
+    precondition {
+      condition     = !var.deploy_kong_app || !local.kong_uses_key_vault_secrets || (var.kong_server_tls_private_key_secret_id != null && trimspace(var.kong_server_tls_private_key_secret_id) != "")
+      error_message = "kong_server_tls_private_key_secret_id must be set when deploy_kong_app is true and kong_key_vault_secret_identity_id is supplied."
+    }
+    precondition {
+      condition     = !var.deploy_kong_bootstrap_job || (var.kong_bootstrap_job_identity_client_id != null && trimspace(var.kong_bootstrap_job_identity_client_id) != "")
+      error_message = "kong_bootstrap_job_identity_client_id must be set when deploy_kong_bootstrap_job is true."
+    }
+    precondition {
+      condition     = !var.deploy_kong_bootstrap_job || (var.kong_bootstrap_job_identity_id != null && trimspace(var.kong_bootstrap_job_identity_id) != "")
+      error_message = "kong_bootstrap_job_identity_id must be set when deploy_kong_bootstrap_job is true."
+    }
+    precondition {
+      condition     = !var.deploy_kong_bootstrap_job || (var.kong_key_vault_name != null && trimspace(var.kong_key_vault_name) != "")
+      error_message = "kong_key_vault_name must be set when deploy_kong_bootstrap_job is true."
+    }
+    precondition {
+      condition     = !var.deploy_kong_bootstrap_job || (var.kong_key_vault_secret_prefix != null && trimspace(var.kong_key_vault_secret_prefix) != "")
+      error_message = "kong_key_vault_secret_prefix must be set when deploy_kong_bootstrap_job is true."
+    }
+    precondition {
+      condition     = !var.deploy_kong_bootstrap_job || (var.sdx_bootstrap_token != null && trimspace(nonsensitive(var.sdx_bootstrap_token)) != "")
+      error_message = "sdx_bootstrap_token must be set when deploy_kong_bootstrap_job is true."
+    }
+    precondition {
+      condition     = !var.deploy_kong_bootstrap_job || (var.sdx_client_ca_url != null && trimspace(var.sdx_client_ca_url) != "")
+      error_message = "sdx_client_ca_url must be set when deploy_kong_bootstrap_job is true."
+    }
+    precondition {
+      condition     = !var.kong_mtls_required || !var.kong_external_ingress_enabled
+      error_message = "kong_external_ingress_enabled cannot be combined with kong_mtls_required in the current ACA scaffold. The supported public edge is Application Gateway in front of the private ACA environment, so ACA external ingress must remain disabled."
     }
   }
 }
@@ -85,6 +145,8 @@ resource "azurerm_container_app_environment" "main" {
     ignore_changes = [tags]
   }
   logs_destination = "log-analytics"
+
+  depends_on = [terraform_data.container_apps_preconditions]
 }
 # -----------------------------------------------------------------------------
 # Fix Log Analytics Configuration
@@ -175,6 +237,206 @@ resource "null_resource" "wait_for_containerapps_private_dns_zone" {
   depends_on = [azurerm_private_endpoint.containerapps]
 }
 
+resource "azurerm_container_app_job" "kong_bootstrap" {
+  count                        = local.deploy_kong_bootstrap_job_count
+  name                         = local.kong_bootstrap_job_name
+  location                     = var.location
+  resource_group_name          = var.resource_group_name
+  container_app_environment_id = azurerm_container_app_environment.main[0].id
+  replica_timeout_in_seconds   = 900
+  replica_retry_limit          = 1
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [var.kong_bootstrap_job_identity_id]
+  }
+
+  template {
+    container {
+      name    = "bootstrap"
+      image   = "mcr.microsoft.com/azure-cli:latest"
+      cpu     = 0.5
+      memory  = "1Gi"
+      command = ["/bin/sh"]
+      args = ["-c", <<-EOT
+        set -eu
+
+        require_env() {
+          var_name="$1"
+          var_value="$(printenv "$var_name" 2>/dev/null || true)"
+          if [ -z "$var_value" ]; then
+            echo "Required environment variable is not set: $var_name" >&2
+            exit 1
+          fi
+        }
+
+        set_secret_with_retry() {
+          secret_name="$1"
+          source_file="$2"
+          attempt=1
+
+          while [ "$attempt" -le 12 ]; do
+            if az keyvault secret set \
+              --vault-name "$KONG_KEY_VAULT_NAME" \
+              --name "$secret_name" \
+              --file "$source_file" \
+              --only-show-errors \
+              >/dev/null; then
+              return 0
+            fi
+
+            if [ "$attempt" -eq 12 ]; then
+              echo "Failed to write secret '$secret_name' to Key Vault '$KONG_KEY_VAULT_NAME'." >&2
+              return 1
+            fi
+
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+        }
+
+        require_env KONG_KEY_VAULT_NAME
+        require_env KONG_KEY_VAULT_SECRET_PREFIX
+        require_env KONG_RUNTIME_GROUP_NAME
+        require_env SDX_BOOTSTRAP_TOKEN
+        require_env SDX_CLIENT_CA_URL
+
+        route_host="$(printenv KONG_ROUTE_HOST 2>/dev/null || true)"
+        if [ -z "$route_host" ]; then
+          route_host="$KONG_RUNTIME_GROUP_NAME.servers.sdx"
+        fi
+
+        work_dir="$(mktemp -d)"
+        trap 'rm -rf "$work_dir"' EXIT
+
+        az login \
+          --identity \
+          --allow-no-subscriptions \
+          --client-id "${var.kong_bootstrap_job_identity_client_id}" \
+          --only-show-errors \
+          >/dev/null
+
+        curl -fsSL \
+          "https://dl.step.sm/gh-release/cli/docs-cli-install/v0.23.0/step_linux_0.23.0_amd64.tar.gz" \
+          -o "$work_dir/step.tar.gz"
+
+        tar -xzf "$work_dir/step.tar.gz" -C "$work_dir"
+
+        step_bin="$work_dir/step_0.23.0/bin/step"
+        if [ ! -x "$step_bin" ]; then
+          echo "step-cli binary was not extracted as expected." >&2
+          exit 1
+        fi
+
+        server_ip_san="$(printenv SDX_SERVER_IP_SAN 2>/dev/null || true)"
+        if [ -n "$server_ip_san" ]; then
+          "$step_bin" certificate create \
+            --no-password \
+            --insecure \
+            --san "$route_host" \
+            --san "$server_ip_san" \
+            --csr "$route_host" \
+            "$work_dir/tls.csr" \
+            "$work_dir/tls.key"
+        else
+          "$step_bin" certificate create \
+            --no-password \
+            --insecure \
+            --san "$route_host" \
+            --csr "$route_host" \
+            "$work_dir/tls.csr" \
+            "$work_dir/tls.key"
+        fi
+
+        curl -fsSL -o "$work_dir/roots.pem" "$SDX_CLIENT_CA_URL/roots.pem"
+
+        "$step_bin" ca sign \
+          --ca-url "$SDX_CLIENT_CA_URL" \
+          --root "$work_dir/roots.pem" \
+          --force \
+          --token "$SDX_BOOTSTRAP_TOKEN" \
+          "$work_dir/tls.csr" \
+          "$work_dir/tls.crt"
+
+        if [ ! -s "$work_dir/tls.crt" ] || [ ! -s "$work_dir/tls.key" ] || [ ! -s "$work_dir/roots.pem" ]; then
+          echo "Bootstrap flow did not produce the expected certificate files." >&2
+          exit 1
+        fi
+
+        set_secret_with_retry "$KONG_KEY_VAULT_SECRET_PREFIX-client-tls-certificate" "$work_dir/tls.crt"
+        set_secret_with_retry "$KONG_KEY_VAULT_SECRET_PREFIX-client-tls-private-key" "$work_dir/tls.key"
+        set_secret_with_retry "$KONG_KEY_VAULT_SECRET_PREFIX-server-tls-certificate" "$work_dir/tls.crt"
+        set_secret_with_retry "$KONG_KEY_VAULT_SECRET_PREFIX-server-tls-private-key" "$work_dir/tls.key"
+        set_secret_with_retry "$KONG_KEY_VAULT_SECRET_PREFIX-edge-ca" "$work_dir/roots.pem"
+      EOT
+      ]
+    }
+  }
+
+  tags = merge(var.common_tags, {
+    Component = "Container Apps Job"
+    Purpose   = "Bootstrap Kong SDX certificates into Key Vault"
+    Trigger   = "Manual"
+  })
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+
+  depends_on = [azurerm_container_app_environment.main, null_resource.wait_for_containerapps_private_dns_zone]
+}
+
+resource "terraform_data" "kong_bootstrap_execution" {
+  count            = local.kong_bootstrap_job_run_count
+  triggers_replace = [local.kong_bootstrap_run_fingerprint]
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-lc"]
+    environment = {
+      KONG_KEY_VAULT_NAME          = var.kong_key_vault_name
+      KONG_KEY_VAULT_SECRET_PREFIX = var.kong_key_vault_secret_prefix
+      KONG_ROUTE_HOST              = coalesce(local.kong_route_host, "")
+      KONG_RUNTIME_GROUP_NAME      = var.kong_runtime_group_name
+      SDX_BOOTSTRAP_TOKEN          = var.sdx_bootstrap_token
+      SDX_CLIENT_CA_URL            = var.sdx_client_ca_url
+      SDX_SERVER_IP_SAN            = coalesce(var.sdx_server_ip_san, "")
+    }
+    command = <<-EOT
+      set -euo pipefail
+
+      if [[ -f "./scripts/run-aca-job.sh" ]]; then
+        SCRIPT_PATH="./scripts/run-aca-job.sh"
+      elif [[ -f "./infra/scripts/run-aca-job.sh" ]]; then
+        SCRIPT_PATH="./infra/scripts/run-aca-job.sh"
+      else
+        echo "run-aca-job.sh not found. Expected ./scripts/run-aca-job.sh (from infra/) or ./infra/scripts/run-aca-job.sh (from repo root)." >&2
+        exit 2
+      fi
+
+      script_args=(
+        --container-name "bootstrap"
+        --job-name "${azurerm_container_app_job.kong_bootstrap[0].name}"
+        --resource-group "${var.resource_group_name}"
+        --timeout "10m"
+        --interval "10s"
+      )
+
+      if [[ -n "${coalesce(var.log_analytics_workspace_customer_id, "")}" ]]; then
+        script_args+=(--workspace-id "${coalesce(var.log_analytics_workspace_customer_id, "")}")
+      fi
+
+      bash "$SCRIPT_PATH" "$${script_args[@]}"
+    EOT
+  }
+
+  depends_on = [azurerm_container_app_job.kong_bootstrap, azapi_update_resource.container_app_env_logs, null_resource.wait_for_containerapps_private_dns_zone]
+}
+
 # -----------------------------------------------------------------------------
 # Kong SDX Edge Runtime Container App
 # The published sdx-edge Helm chart wraps this runtime image plus Kubernetes-only
@@ -191,22 +453,29 @@ resource "azurerm_container_app" "kong" {
   workload_profile_name        = "Consumption"
 
   identity {
-    type = var.enable_system_assigned_identity ? "SystemAssigned" : "None"
+    type         = local.kong_identity_type
+    identity_ids = local.kong_uses_key_vault_secrets ? [var.kong_key_vault_secret_identity_id] : null
   }
 
   secret {
-    name  = "kong-client-tls-certificate"
-    value = var.kong_client_tls_certificate_pem
+    name                = "kong-client-tls-certificate"
+    identity            = local.kong_uses_key_vault_secrets ? var.kong_key_vault_secret_identity_id : null
+    key_vault_secret_id = local.kong_uses_key_vault_secrets ? var.kong_client_tls_certificate_secret_id : null
+    value               = local.kong_uses_key_vault_secrets ? null : var.kong_client_tls_certificate_pem
   }
 
   secret {
-    name  = "kong-client-tls-private-key"
-    value = var.kong_client_tls_private_key_pem
+    name                = "kong-client-tls-private-key"
+    identity            = local.kong_uses_key_vault_secrets ? var.kong_key_vault_secret_identity_id : null
+    key_vault_secret_id = local.kong_uses_key_vault_secrets ? var.kong_client_tls_private_key_secret_id : null
+    value               = local.kong_uses_key_vault_secrets ? null : var.kong_client_tls_private_key_pem
   }
 
   secret {
-    name  = "kong-edge-ca-pem"
-    value = var.kong_edge_ca_pem
+    name                = "kong-edge-ca-pem"
+    identity            = local.kong_uses_key_vault_secrets ? var.kong_key_vault_secret_identity_id : null
+    key_vault_secret_id = local.kong_uses_key_vault_secrets ? var.kong_edge_ca_secret_id : null
+    value               = local.kong_uses_key_vault_secrets ? null : var.kong_edge_ca_pem
   }
 
   secret {
@@ -220,13 +489,17 @@ resource "azurerm_container_app" "kong" {
   }
 
   secret {
-    name  = "kong-server-tls-certificate"
-    value = var.kong_server_tls_certificate_pem
+    name                = "kong-server-tls-certificate"
+    identity            = local.kong_uses_key_vault_secrets ? var.kong_key_vault_secret_identity_id : null
+    key_vault_secret_id = local.kong_uses_key_vault_secrets ? var.kong_server_tls_certificate_secret_id : null
+    value               = local.kong_uses_key_vault_secrets ? null : var.kong_server_tls_certificate_pem
   }
 
   secret {
-    name  = "kong-server-tls-private-key"
-    value = var.kong_server_tls_private_key_pem
+    name                = "kong-server-tls-private-key"
+    identity            = local.kong_uses_key_vault_secrets ? var.kong_key_vault_secret_identity_id : null
+    key_vault_secret_id = local.kong_uses_key_vault_secrets ? var.kong_server_tls_private_key_secret_id : null
+    value               = local.kong_uses_key_vault_secrets ? null : var.kong_server_tls_private_key_pem
   }
 
   template {
@@ -522,6 +795,11 @@ resource "azurerm_container_app" "dab" {
   revision_mode                = "Single"
   workload_profile_name        = "Consumption"
 
+  secret {
+    name  = local.dab_sql_connection_string_secret_name
+    value = var.dab_sql_connection_string
+  }
+
   identity {
     type = var.enable_system_assigned_identity ? "SystemAssigned" : "None"
   }
@@ -536,6 +814,16 @@ resource "azurerm_container_app" "dab" {
       image  = var.dab_image
       cpu    = var.container_cpu
       memory = var.container_memory
+
+      env {
+        name  = "DB_TYPE"
+        value = var.dab_database_type
+      }
+
+      env {
+        name        = "SQL_CONN_STRING"
+        secret_name = local.dab_sql_connection_string_secret_name
+      }
     }
 
     http_scale_rule {

@@ -27,5 +27,6 @@
 ## Repo Skills
 
 - Use `.github/skills/iac-coder/SKILL.md` for Terraform, Bash, and workflow work.
+- Use `.github/skills/app-gateway/SKILL.md` for Azure Application Gateway listener, rewrite, certificate, WAF, and private-DNS work.
 - Use `.github/skills/aps-gateway/SKILL.md` for APS gateway config work.
 - Use `.github/skills/fabric-dab/SKILL.md` for DAB and Fabric facade work.
