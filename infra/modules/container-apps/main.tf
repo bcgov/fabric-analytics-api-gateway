@@ -29,10 +29,6 @@ resource "terraform_data" "container_apps_preconditions" {
       error_message = "dab_database_type must be set when deploy_dab_app is true so the DAB config can resolve @env('DB_TYPE')."
     }
     precondition {
-      condition     = !var.deploy_dab_app || (var.dab_sql_connection_string != null && trimspace(nonsensitive(var.dab_sql_connection_string)) != "")
-      error_message = "dab_sql_connection_string must be set when deploy_dab_app is true so the DAB config can resolve @env('SQL_CONN_STRING')."
-    }
-    precondition {
       condition     = !var.deploy_kong_app || (var.kong_runtime_group_name != null && trimspace(var.kong_runtime_group_name) != "")
       error_message = "kong_runtime_group_name must be set when deploy_kong_app is true. The APS SDX runtime group docs require a short runtime-group identifier."
     }
