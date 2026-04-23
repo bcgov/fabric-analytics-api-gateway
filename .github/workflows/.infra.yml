@@ -62,6 +62,7 @@ jobs:
         shell: bash
         env:
           CI: "true"
+          TF_VAR_create_resource_group: "true"
           TF_VAR_app_env: ${{ inputs.environment_name }}
           TF_VAR_dab_database_type: "dwsql"
           TF_VAR_dab_image: ${{ inputs.dab_image }}
