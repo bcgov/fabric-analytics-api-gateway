@@ -38,7 +38,7 @@ resource "terraform_data" "container_apps_preconditions" {
     }
     precondition {
       condition     = !var.deploy_dab_app || trimspace(var.dab_database_type) != ""
-      error_message = "dab_database_type must be set when deploy_dab_app is true so the DAB config can resolve @env('DB_TYPE')."
+      error_message = "dab_database_type must be set when deploy_dab_app is true so the DAB config can resolve @env('db-type')."
     }
     precondition {
       condition     = !var.deploy_kong_app || (var.kong_runtime_group_name != null && trimspace(var.kong_runtime_group_name) != "")
@@ -827,14 +827,14 @@ resource "azurerm_container_app" "dab" {
       memory = var.container_memory
 
       env {
-        name  = "DB_TYPE"
+        name  = "db-type"
         value = var.dab_database_type
       }
 
       dynamic "env" {
         for_each = var.dab_sql_connection_string != "" ? [1] : []
         content {
-          name        = "SQL_CONN_STRING"
+          name        = "ConnectionStrings__Database"
           secret_name = local.dab_sql_connection_string_secret_name
         }
       }
@@ -842,7 +842,7 @@ resource "azurerm_container_app" "dab" {
       dynamic "env" {
         for_each = var.dab_sql_connection_string == "" ? [1] : []
         content {
-          name  = "SQL_CONN_STRING"
+          name  = "ConnectionStrings__Database"
           value = ""
         }
       }

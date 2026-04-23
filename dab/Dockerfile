@@ -3,5 +3,6 @@ FROM ${DAB_BASE_IMAGE}
 
 WORKDIR /App
 
+COPY dab-config.template.json /App/dab-config.json
 
 EXPOSE 5000
