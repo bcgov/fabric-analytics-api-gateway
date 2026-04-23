@@ -88,6 +88,18 @@ resource "azurerm_network_security_group" "privateendpoints" {
     source_address_prefix      = "AzureFrontDoor.Backend"
     destination_address_prefix = local.private_endpoints_subnet_cidr
   }
+  # --- Outbound: Internet (external OAuth, APIM developer portal, etc.) ---
+  security_rule {
+    name                       = "AllowInternetOutbound"
+    priority                   = 140
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["443", "1433"]
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Internet"
+  }
 
 
   tags = var.common_tags
