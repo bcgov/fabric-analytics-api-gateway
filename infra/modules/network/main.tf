@@ -155,6 +155,18 @@ resource "azurerm_network_security_group" "container_apps" {
     source_port_range          = "*"
     destination_port_range     = "*"
   }
+  # --- Outbound: Internet (external OAuth, APIM developer portal, etc.) ---
+  security_rule {
+    name                       = "AllowInternetOutbound"
+    priority                   = 140
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["443", "1433"]
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Internet"
+  }
 }
 # Container Apps subnet for Container Apps Environment
 resource "azapi_resource" "container_apps_subnet" {
