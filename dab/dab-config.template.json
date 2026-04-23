@@ -18,5 +18,42 @@
       }
     }
   },
-  "entities": {}
+  "entities": {
+    "NaturalResourceBoundary": {
+      "source": {
+        "object": "admin_boundary.adm_natural_resource_bndries_poly",
+        "type": "table"
+      },
+      "permissions": [{ "role": "anonymous", "actions": ["read"] }],
+      "rest": {
+        "enabled": true,
+        "path": "/natural-resource-boundaries"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "NaturalResourceBoundary",
+          "plural": "NaturalResourceBoundaries"
+        }
+      }
+    },
+    "NaturalResourceRegion": {
+      "source": {
+        "object": "admin_boundary.adm_natural_resource_regions_gen",
+        "type": "table"
+      },
+      "permissions": [{ "role": "anonymous", "actions": ["read"] }],
+      "rest": {
+        "enabled": true,
+        "path": "/natural-resource-regions"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "NaturalResourceRegion",
+          "plural": "NaturalResourceRegions"
+        }
+      }
+    }
+  }
 }
