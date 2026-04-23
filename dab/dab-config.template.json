@@ -27,7 +27,7 @@
       "permissions": [{ "role": "anonymous", "actions": ["read"] }],
       "rest": {
         "enabled": true,
-        "path": "/natural-resource-boundaries"
+        "path": "natural-resource-boundaries"
       },
       "graphql": {
         "enabled": true,
@@ -45,7 +45,7 @@
       "permissions": [{ "role": "anonymous", "actions": ["read"] }],
       "rest": {
         "enabled": true,
-        "path": "/natural-resource-regions"
+        "path": "natural-resource-regions"
       },
       "graphql": {
         "enabled": true,
