@@ -139,7 +139,7 @@ resource "azurerm_network_security_group" "container_apps" {
     access                     = "Allow"
     protocol                   = "*"
     source_address_prefix      = "AzureLoadBalancer"
-    destination_address_prefix = local.container_apps_subnet_cidr
+    destination_address_prefix = "*"
     source_port_range          = "*"
     destination_port_range     = "*"
   }

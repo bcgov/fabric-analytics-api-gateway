@@ -9,6 +9,6 @@ locals {
 
 
   private_endpoints_subnet_cidr   = "${local.base_ip}.0/27"  # 32 addresses, 5 reserved by Azure, 27 usable
-  container_apps_subnet_cidr      = "${local.base_ip}.32/26" # 64 addresses, 5 reserved by Azure, 59 usable
+  container_apps_subnet_cidr      = "${local.base_ip}.32/27" # 32 addresses, 5 reserved by Azure, 27 usable
   application_gateway_subnet_cidr = "${local.base_ip}.96/28" # 16 addresses, 5 reserved by Azure, 11 usable
 }

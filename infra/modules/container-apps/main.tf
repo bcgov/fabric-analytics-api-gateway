@@ -21,6 +21,18 @@ resource "terraform_data" "container_apps_preconditions" {
       error_message = "log_analytics_workspace_id must be set (enable the monitoring module) when the container-apps module is enabled."
     }
     precondition {
+      condition     = var.log_analytics_workspace_customer_id != null && trimspace(var.log_analytics_workspace_customer_id) != ""
+      error_message = "log_analytics_workspace_customer_id must be set (enable the monitoring module) when the container-apps module is enabled."
+    }
+    precondition {
+      condition     = var.log_analytics_workspace_key != null && trimspace(var.log_analytics_workspace_key) != ""
+      error_message = "log_analytics_workspace_key must be set (enable the monitoring module) when the container-apps module is enabled."
+    }
+    precondition {
+      condition     = var.private_endpoint_subnet_id != null && trimspace(var.private_endpoint_subnet_id) != ""
+      error_message = "private_endpoint_subnet_id must be set (enable the network module or pass an existing subnet id) when the container-apps module is enabled."
+    }
+    precondition {
       condition     = !var.deploy_dab_app || (var.dab_image != null && trimspace(var.dab_image) != "")
       error_message = "dab_image must be set when deploy_dab_app is true."
     }
@@ -791,9 +803,12 @@ resource "azurerm_container_app" "dab" {
   revision_mode                = "Single"
   workload_profile_name        = "Consumption"
 
-  secret {
-    name  = local.dab_sql_connection_string_secret_name
-    value = var.dab_sql_connection_string
+  dynamic "secret" {
+    for_each = var.dab_sql_connection_string != "" ? [1] : []
+    content {
+      name  = local.dab_sql_connection_string_secret_name
+      value = var.dab_sql_connection_string
+    }
   }
 
   identity {
@@ -816,9 +831,20 @@ resource "azurerm_container_app" "dab" {
         value = var.dab_database_type
       }
 
-      env {
-        name        = "SQL_CONN_STRING"
-        secret_name = local.dab_sql_connection_string_secret_name
+      dynamic "env" {
+        for_each = var.dab_sql_connection_string != "" ? [1] : []
+        content {
+          name        = "SQL_CONN_STRING"
+          secret_name = local.dab_sql_connection_string_secret_name
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.dab_sql_connection_string == "" ? [1] : []
+        content {
+          name  = "SQL_CONN_STRING"
+          value = ""
+        }
       }
     }
 

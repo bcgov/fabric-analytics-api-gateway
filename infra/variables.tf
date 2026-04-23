@@ -128,7 +128,7 @@ variable "dab_database_type" {
 variable "dab_external_ingress_enabled" {
   description = "Whether the DAB Container App should expose external ingress."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "dab_image" {
