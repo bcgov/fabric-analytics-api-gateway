@@ -826,15 +826,11 @@ resource "azurerm_container_app" "dab" {
       cpu    = var.container_cpu
       memory = var.container_memory
 
-      env {
-        name  = "db-type"
-        value = var.dab_database_type
-      }
 
       dynamic "env" {
         for_each = var.dab_sql_connection_string != "" ? [1] : []
         content {
-          name        = "ConnectionStrings__Database"
+          name        = "SQL_CONN_STRING"
           secret_name = local.dab_sql_connection_string_secret_name
         }
       }
@@ -842,7 +838,7 @@ resource "azurerm_container_app" "dab" {
       dynamic "env" {
         for_each = var.dab_sql_connection_string == "" ? [1] : []
         content {
-          name  = "ConnectionStrings__Database"
+          name  = "SQL_CONN_STRING"
           value = ""
         }
       }

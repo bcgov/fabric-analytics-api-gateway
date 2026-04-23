@@ -1,4 +1,4 @@
-ARG DAB_BASE_IMAGE=mcr.microsoft.com/azure-databases/data-api-builder:2.0.0-rc
+ARG DAB_BASE_IMAGE=mcr.microsoft.com/azure-databases/data-api-builder:1.7.93
 FROM ${DAB_BASE_IMAGE}
 
 WORKDIR /App
