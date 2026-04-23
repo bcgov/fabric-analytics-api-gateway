@@ -36,3 +36,4 @@ terraform.tfvars
 *.lock.hcl
 **/.tmp/
 **/.terraform/
+*-local.http

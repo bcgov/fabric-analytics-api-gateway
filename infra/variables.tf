@@ -433,7 +433,7 @@ variable "max_replicas" {
 variable "min_replicas" {
   description = "Minimum number of replicas for each Kong or DAB container app."
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "private_endpoint_subnet_id" {

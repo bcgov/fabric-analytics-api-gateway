@@ -313,7 +313,7 @@ variable "max_replicas" {
 variable "min_replicas" {
   description = "Minimum number of replicas for each workload."
   type        = number
-  default     = 0
+  default     = 1
   nullable    = false
 }
 

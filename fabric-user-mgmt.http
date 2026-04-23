@@ -1,0 +1,50 @@
+# Fabric Workspace User Management
+# Requires VS Code REST Client extension
+#
+# 1. Get token first:
+#    az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv
+# 2. Paste token into @token below
+# 3. Get workspace ID from Fabric portal URL:
+#    https://app.fabric.microsoft.com/groups/<workspace-id>/...
+# 4. Paste workspace ID into @workspaceId below
+
+@baseUrl     = https://api.powerbi.com/v1.0/myorg
+@workspaceId = <workspace-id>
+@principalId = <managed-identity-principal-id>
+@token       = <access-token>
+
+### List current workspace members (verify before/after)
+GET {{baseUrl}}/groups/{{workspaceId}}/users
+Authorization: Bearer {{token}}
+
+###
+
+### Add DAB managed identity as workspace Member
+POST {{baseUrl}}/groups/{{workspaceId}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "groupUserAccessRight": "Member",
+    "identifier": "{{principalId}}",
+    "principalType": "App"
+}
+
+###
+
+### Update role (if already added, change role)
+PUT {{baseUrl}}/groups/{{workspaceId}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "groupUserAccessRight": "Member",
+    "identifier": "{{principalId}}",
+    "principalType": "App"
+}
+
+###
+
+### Remove managed identity from workspace (cleanup)
+DELETE {{baseUrl}}/groups/{{workspaceId}}/users/{{principalId}}
+Authorization: Bearer {{token}}
