@@ -1,0 +1,70 @@
+# ============================================================
+# tenant.tfvars — example: WLRS ministry with multiple products
+#
+# Copy to params/dev/tenants/wlrs/tenant.tfvars and fill in
+# the real Fabric workspace and item IDs.
+#
+# URL patterns produced:
+#   POST /wlrs/fish-wildlife/graphql/faunal-data       → Fabric GraphQL
+#   POST /wlrs/fish-wildlife/sql/reporting             → Fabric SQL Analytics
+#   POST /wlrs/water-licensing/graphql/permits-api     → Fabric GraphQL
+# ============================================================
+
+tenants = {
+  "wlrs" = {
+    tenant_name  = "wlrs"
+    display_name = "Water, Land and Resource Stewardship"
+    enabled      = true
+
+    products = {
+      # ------------------------------------------------------------------
+      # Fish & Wildlife analytics product
+      # Multiple endpoints per product — each endpoint uses its own
+      # backend_url. The caller includes the endpoint name in the URL path.
+      # ------------------------------------------------------------------
+      "fish-wildlife" = {
+        display_name = "Fish and Wildlife Analytics"
+        description  = "Fabric Lakehouse analytics for fish and wildlife datasets"
+
+        graphql_endpoints = [
+          {
+            name        = "faunal-data"
+            backend_url = "https://api.fabric.microsoft.com/v1/workspaces/WORKSPACE-ID-1/graphqlapis/ITEM-ID-1/graphql"
+            description = "Faunal occurrence and species inventory GraphQL API"
+          },
+          {
+            name        = "habitat-index"
+            backend_url = "https://api.fabric.microsoft.com/v1/workspaces/WORKSPACE-ID-1/graphqlapis/ITEM-ID-2/graphql"
+            description = "Critical habitat index GraphQL API"
+          }
+        ]
+
+        sql_analytics_endpoints = [
+          {
+            name        = "reporting"
+            backend_url = "https://WORKSPACE-ID-1.datawarehouse.fabric.microsoft.com"
+            description = "Fish and wildlife reporting data warehouse"
+          }
+        ]
+      }
+
+      # ------------------------------------------------------------------
+      # Water licensing product
+      # ------------------------------------------------------------------
+      "water-licensing" = {
+        display_name = "Water Licensing"
+        description  = "Fabric analytics for water licence and rights data"
+
+        graphql_endpoints = [
+          {
+            name        = "permits-api"
+            backend_url = "https://api.fabric.microsoft.com/v1/workspaces/WORKSPACE-ID-2/graphqlapis/ITEM-ID-3/graphql"
+            description = "Water licence and permit GraphQL API"
+          }
+        ]
+
+        sql_analytics_endpoints = []
+      }
+    }
+  }
+}

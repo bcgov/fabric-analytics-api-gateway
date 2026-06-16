@@ -1,0 +1,28 @@
+<policies>
+  <inbound>
+    <!--
+      Global JWT validation — applied to ALL APIs in this APIM instance.
+      Every inbound request must carry a valid BCGov Entra Bearer token.
+      Fabric performs its own authorization once the token is forwarded.
+
+      {{bcgov-entra-tenant-id}} is an APIM Named Value set by Terraform.
+    -->
+    <validate-jwt header-name="Authorization"
+                  failed-validation-httpcode="401"
+                  failed-validation-error-message="Unauthorized — a valid BCGov Entra ID token is required">
+      <openid-config url="https://login.microsoftonline.com/{{bcgov-entra-tenant-id}}/v2.0/.well-known/openid-configuration" />
+    </validate-jwt>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <!-- Strip server fingerprinting headers -->
+    <set-header name="X-Powered-By" exists-action="delete" />
+    <set-header name="X-AspNet-Version" exists-action="delete" />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

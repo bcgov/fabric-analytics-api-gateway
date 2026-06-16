@@ -1,0 +1,60 @@
+<policies>
+  <inbound>
+    <base />
+    <!--
+      Routing policy for Fabric SQL Analytics endpoints.
+      JWT validation is enforced by the APIM global policy (BCGov Entra issuer).
+      The Authorization Bearer token is forwarded as-is to Fabric.
+      Fabric performs its own authorization.
+
+      NOTE: This policy proxies HTTP/S-based Fabric REST API calls only.
+            Direct TDS/JDBC connections to SQL Analytics endpoints bypass APIM
+            entirely and are out of scope for this gateway.
+
+      Tenant:  ${tenant_name}
+      Product: ${product_name}
+
+      URL pattern: POST|GET /{tenant}/{product}/sql/{endpoint-name}[/...]
+        e.g. POST /${tenant_name}/${product_name}/sql/my-endpoint/runQuery
+    -->
+    <set-header name="X-Tenant-Id" exists-action="override">
+      <value>${tenant_name}</value>
+    </set-header>
+    <set-header name="X-Product-Id" exists-action="override">
+      <value>${product_name}</value>
+    </set-header>
+    <set-header name="X-Endpoint-Type" exists-action="override">
+      <value>sql-analytics</value>
+    </set-header>
+    <!--
+      Route to the correct Fabric SQL Analytics endpoint.
+      The endpoint name is matched as an exact path segment.
+    -->
+    <choose>
+%{ for endpoint in endpoints ~}
+      <when condition="@(context.Request.Url.Path.Split('/').Any(s => s == "${endpoint.name}"))">
+        <set-backend-service base-url="${endpoint.backend_url}" />
+        <rewrite-uri template="/" copy-unmatched-params="false" />
+      </when>
+%{ endfor ~}
+      <otherwise>
+        <return-response>
+          <set-status code="404" reason="Not Found" />
+          <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+          </set-header>
+          <set-body>{"error": "SQL Analytics endpoint not found", "valid_endpoints": [${join(", ", [for e in endpoints : "\"${e.name}\""])}], "hint": "Include the endpoint name as the next path segment after /sql/"}</set-body>
+        </return-response>
+      </otherwise>
+    </choose>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
