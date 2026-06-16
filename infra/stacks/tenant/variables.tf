@@ -41,7 +41,7 @@ variable "use_oidc" {
 
 # ---------------------------------------------------------------------------
 # Remote state — reads APIM name and resource group from the shared stack.
-# Values are supplied via TF_VAR_backend_* by deploy-scaled.sh (never committed).
+# Values are supplied via TF_VAR_backend_* by deploy-terraform.sh (never committed).
 # ---------------------------------------------------------------------------
 variable "backend_resource_group" {
   description = "Resource group containing the Terraform state storage account"

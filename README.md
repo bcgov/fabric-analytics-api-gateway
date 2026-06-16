@@ -39,8 +39,7 @@ infra/
     <env>/      # dev | test — common.tfvars + shared.tfvars + tenants/**/tenant.tfvars
     apim/       # global_policy.xml + templates/*.xml.tftpl (API policy templates)
   scripts/
-    deploy-terraform.sh   # public entrypoint (plan/apply/destroy)
-    deploy-scaled.sh      # internal stack engine (orchestrates shared → tenant)
+    deploy-terraform.sh   # single deploy script: plan / apply / destroy / import
   .tflint.hcl
 .github/workflows/        # infra (reusable), infra-lint, infra-manual, pr
 ```
@@ -74,10 +73,14 @@ export TF_VAR_tenant_id="<azure-ad-tenant-id>"
 ./scripts/deploy-terraform.sh plan    dev
 ./scripts/deploy-terraform.sh apply   dev [--auto-approve]
 ./scripts/deploy-terraform.sh destroy dev [--auto-approve]
+
+# Import an existing Azure resource into a specific stack's state:
+./scripts/deploy-terraform.sh import dev shared <tf-address> <azure-resource-id>
+./scripts/deploy-terraform.sh import dev tenant <tf-address> <azure-resource-id>
 ```
 
 - `<env>` must be one of `dev`, `test`, `prod`.
-- The wrapper auto-discovers `params/<env>/common.tfvars`, `params/<env>/shared.tfvars`,
+- The script auto-discovers `params/<env>/common.tfvars`, `params/<env>/shared.tfvars`,
   and every `params/<env>/tenants/**/tenant.tfvars`, and uses the `azurerm` backend
   with key `fabric-gateway/<env>/<stack>.tfstate`.
 

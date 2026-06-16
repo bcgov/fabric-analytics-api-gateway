@@ -1,5 +1,5 @@
 data "terraform_remote_state" "shared" {
-  # The shared stack must be deployed first (deploy-scaled.sh enforces this).
+  # The shared stack must be deployed first (deploy-terraform.sh enforces this).
   # apim_id and apim_name outputs must be non-null (APIM must be enabled there).
   backend = "azurerm"
   config = {

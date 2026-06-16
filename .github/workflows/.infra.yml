@@ -38,7 +38,7 @@ jobs:
 
       - name: Make wrapper executable
         shell: bash
-        run: chmod +x ./infra/scripts/deploy-terraform.sh ./infra/scripts/deploy-scaled.sh
+        run: chmod +x ./infra/scripts/deploy-terraform.sh
 
       - name: Terraform command
         shell: bash
@@ -56,4 +56,4 @@ jobs:
           INPUT_ENVIRONMENT: ${{ inputs.environment_name }}
         run: |
           set -euo pipefail
-          ./infra/scripts/deploy-terraform.sh "$INPUT_COMMAND" "$INPUT_ENVIRONMENT" --auto-approve
+          ./infra/scripts/deploy-terraform.sh "$INPUT_COMMAND" "$INPUT_ENVIRONMENT"

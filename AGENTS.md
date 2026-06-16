@@ -39,8 +39,7 @@ infra/
     <env>/      # dev | test — shared.tfvars + tenants/**/tenant.tfvars
     apim/       # global_policy.xml + templates/*.xml.tftpl (API policy templates)
   scripts/
-    deploy-terraform.sh   # public entrypoint (plan/apply/destroy)
-    deploy-scaled.sh      # internal stack engine (orchestrates shared → tenant)
+    deploy-terraform.sh   # single deploy script: plan / apply / destroy / import
   .tflint.hcl
 .github/
   workflows/    # detect-changes, infra, infra-lint, infra-manual, pr, builds
