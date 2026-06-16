@@ -117,8 +117,8 @@ resource "azapi_resource" "application_gateway_subnet" {
   schema_validation_enabled = false
   body = {
     properties = {
-      addressPrefix         = local.application_gateway_subnet_cidr
-      defaultOutboundAccess = false
+      addressPrefix = local.application_gateway_subnet_cidr
+
       networkSecurityGroup = {
         id = azurerm_network_security_group.application_gateway[0].id
       }
@@ -227,11 +227,19 @@ resource "azapi_resource" "apim_subnet" {
   schema_validation_enabled = false
   body = {
     properties = {
-      addressPrefix         = local.apim_subnet_cidr
-      defaultOutboundAccess = false
+      addressPrefix = local.apim_subnet_cidr
       networkSecurityGroup = {
         id = azurerm_network_security_group.apim[0].id
       }
+      # APIM StandardV2/PremiumV2 VNet integration requires delegation to Microsoft.Web/serverFarms
+      delegations = [
+        {
+          name = "Microsoft.Web.serverFarms"
+          properties = {
+            serviceName = "Microsoft.Web/serverFarms"
+          }
+        }
+      ]
     }
   }
   response_export_values = ["*"]
@@ -253,11 +261,6 @@ resource "azapi_resource" "privateendpoints_subnet" {
       networkSecurityGroup = {
         id = azurerm_network_security_group.privateendpoints[0].id
       }
-      # Enable NSG enforcement on private endpoints in this subnet.
-      # By default Azure disables network policies for PEs, which would
-      # bypass the NSG above. "NetworkSecurityGroupEnabled" applies the
-      # NSG to PE traffic without affecting route table behaviour.
-      privateEndpointNetworkPolicies = "NetworkSecurityGroupEnabled"
     }
   }
   response_export_values = ["*"]
