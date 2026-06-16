@@ -1,5 +1,9 @@
 <policies>
   <inbound>
+    <!-- Set correlation ID for request tracing -->
+    <set-header name="x-ms-correlation-request-id" exists-action="skip">
+        <value>@(context.RequestId.ToString())</value>
+    </set-header>
     <!--
       Global JWT validation — applied to ALL APIs in this APIM instance.
       Every inbound request must carry a valid BCGov Entra Bearer token.
@@ -14,15 +18,14 @@
     </validate-jwt>
   </inbound>
   <backend>
-    <base />
+    <!-- At the global (service) scope there is no parent policy, so <base/> is
+         illegal here; <forward-request/> performs the default backend forward. -->
+    <forward-request />
   </backend>
   <outbound>
-    <base />
     <!-- Strip server fingerprinting headers -->
     <set-header name="X-Powered-By" exists-action="delete" />
     <set-header name="X-AspNet-Version" exists-action="delete" />
   </outbound>
-  <on-error>
-    <base />
-  </on-error>
+  <on-error />
 </policies>
