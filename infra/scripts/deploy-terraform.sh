@@ -57,6 +57,31 @@ case "${COMMAND}" in
   *) echo "ERROR: command must be plan, apply, destroy, or import" >&2; exit 1 ;;
 esac
 
+# ---------------------------------------------------------------------------
+# CI non-interactive mode
+# When CI=true, inject -auto-approve so apply/destroy never hang on the
+# interactive confirmation prompt. plan and import take no such flag (Terraform
+# would error), so they are skipped. A caller-supplied -auto-approve is kept
+# as-is — we only add it when not already present.
+# ---------------------------------------------------------------------------
+if [[ "${CI:-}" == "true" ]]; then
+  case "${COMMAND}" in
+    apply|destroy)
+      auto_approve_set=0
+      for flag in "${EXTRA_FLAGS[@]+"${EXTRA_FLAGS[@]}"}"; do
+        if [[ "${flag}" == "-auto-approve" || "${flag}" == "--auto-approve" ]]; then
+          auto_approve_set=1
+          break
+        fi
+      done
+      if [[ "${auto_approve_set}" -eq 0 ]]; then
+        EXTRA_FLAGS+=("-auto-approve")
+        echo "CI=true — running ${COMMAND} with -auto-approve."
+      fi
+      ;;
+  esac
+fi
+
 : "${BACKEND_RESOURCE_GROUP:?BACKEND_RESOURCE_GROUP must be set}"
 : "${BACKEND_STORAGE_ACCOUNT:?BACKEND_STORAGE_ACCOUNT must be set}"
 export BACKEND_CONTAINER_NAME="${BACKEND_CONTAINER_NAME:-tfstate}"
