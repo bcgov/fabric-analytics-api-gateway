@@ -7,7 +7,11 @@ permissions: {}
 
 concurrency:
   group: infra-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # Do NOT cancel an in-flight run: this workflow runs `apply`, and cancelling
+  # Terraform mid-apply strands the backend state lock (an infinite-duration
+  # blob lease that never auto-expires), blocking every subsequent run. Queue
+  # new pushes behind the running apply instead.
+  cancel-in-progress: false
 
 jobs:
   lint:
@@ -17,7 +21,7 @@ jobs:
     if: (!github.event.pull_request.head.repo.fork)
     uses: ./.github/workflows/.infra-lint.yml
 
-  plan:
+  apply:
     permissions:
       id-token: write # required for requesting the OIDC JWT
       contents: read # required for actions/checkout
