@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   lint:
+    permissions:
+      contents: read
     # no forks allowed
     if: (!github.event.pull_request.head.repo.fork)
     uses: ./.github/workflows/.infra-lint.yml
