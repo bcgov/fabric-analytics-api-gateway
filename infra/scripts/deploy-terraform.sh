@@ -489,6 +489,52 @@ wait_for_dns_zone() {
 }
 
 # ---------------------------------------------------------------------------
+# plan_tenant_graceful
+# Like run_stack "tenant" but exits 0 when the tenant plan fails because the
+# shared stack has not been applied yet (remote state empty → outputs missing
+# → "unsupported attribute" or failed lifecycle precondition).
+# Only use this during 'plan'; apply/destroy must fail loudly on real errors.
+# ---------------------------------------------------------------------------
+plan_tenant_graceful() {
+  local tf_data_dir="${REPO_ROOT}/.terraform-data/tenant"
+  local plan_log
+  plan_log="$(mktemp)"
+
+  echo ""
+  echo "════════════════════════════════════════════════════════════"
+  echo "  Stack: tenant  (plan)"
+  echo "════════════════════════════════════════════════════════════"
+
+  init_stack "tenant"
+  mapfile -t var_files < <(var_file_args "tenant")
+
+  if TF_DATA_DIR="${tf_data_dir}" terraform -chdir="${STACKS_DIR}/tenant" plan \
+      "${var_files[@]}" "${EXTRA_FLAGS[@]+"${EXTRA_FLAGS[@]}"}" 2>&1 \
+      | tee "${plan_log}"; then
+    rm -f "${plan_log}"
+    return 0
+  fi
+
+  # When the shared stack hasn't been applied yet its remote state blob is
+  # empty, so every output reference (outputs.apim_id etc.) fails as
+  # "unsupported attribute".  The lifecycle precondition on the APIM product
+  # resource also fires.  Treat these as "not yet applied" rather than a real
+  # error so that PR plans don't break on a fresh environment.
+  if grep -qiE \
+      "unsupported attribute|does not have an attribute|precondition|No state was found" \
+      "${plan_log}" 2>/dev/null; then
+    rm -f "${plan_log}"
+    echo ""
+    echo "  ⚠ Tenant stack plan skipped — shared stack has not been applied yet."
+    echo "    Run 'apply' first to deploy the shared stack, then re-plan."
+    return 0
+  fi
+
+  rm -f "${plan_log}"
+  return 1
+}
+
+# ---------------------------------------------------------------------------
 # import_resource <stack> <tf-address> <azure-id>
 # Import a single Azure resource into the named stack's Terraform state.
 # ---------------------------------------------------------------------------
@@ -523,7 +569,7 @@ echo "State: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}"
 case "${COMMAND}" in
   plan)
     run_stack "shared"
-    run_stack "tenant"
+    plan_tenant_graceful
     ;;
 
   apply)

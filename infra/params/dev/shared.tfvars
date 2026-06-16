@@ -13,8 +13,6 @@ common_tags = {
   managed_by  = "terraform"
 }
 
-
-
 # ---------------------------------------------------------------------------
 # Shared infrastructure
 # ---------------------------------------------------------------------------
@@ -51,6 +49,6 @@ shared_config = {
   # with vnet_name + vnet_resource_group_name set, the App Gateway uses the
   # module-created subnet and app_gateway_subnet_id may be left null.
   network = {
-    enabled                  = false
+    enabled = false
   }
 }

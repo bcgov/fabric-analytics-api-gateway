@@ -13,8 +13,6 @@ common_tags = {
   managed_by  = "terraform"
 }
 
-
-
 # ---------------------------------------------------------------------------
 # Shared infrastructure
 # ---------------------------------------------------------------------------
@@ -47,6 +45,6 @@ shared_config = {
   }
 
   network = {
-    enabled                  = true
+    enabled = true
   }
 }
