@@ -61,6 +61,18 @@ variable "use_oidc" {
 # the App Gateway subnet inside an existing VNet. Either way, this stack never
 # creates the VNet itself.
 # ---------------------------------------------------------------------------
+variable "vnet_name" {
+  description = "Name of the existing VNet to carve subnets from. Overrides shared_config.network.vnet_name; set via TF_VAR_vnet_name in CI."
+  type        = string
+  default     = null
+}
+
+variable "vnet_resource_group_name" {
+  description = "Resource group of the existing VNet. Overrides shared_config.network.vnet_resource_group_name; set via TF_VAR_vnet_resource_group_name in CI."
+  type        = string
+  default     = null
+}
+
 variable "app_gateway_subnet_id" {
   description = "Resource ID of an existing subnet for App Gateway (a dedicated /27 or larger). Leave null to use the subnet created by the network module via shared_config.network."
   type        = string

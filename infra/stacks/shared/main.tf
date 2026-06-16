@@ -21,8 +21,8 @@ module "network" {
   resource_group_name      = azurerm_resource_group.this.name
   location                 = azurerm_resource_group.this.location
   common_tags              = var.common_tags
-  vnet_name                = local.network_config.vnet_name
-  vnet_resource_group_name = local.network_config.vnet_resource_group_name
+  vnet_name                = local.vnet_name
+  vnet_resource_group_name = local.vnet_resource_group_name
 }
 
 # ---------------------------------------------------------------------------
@@ -104,8 +104,8 @@ module "apim" {
   publisher_name      = local.apim_config.publisher_name
   publisher_email     = local.apim_config.publisher_email
 
-  virtual_network_type = local.apim_config.vnet_injection_enabled ? "External" : "None"
-  virtual_network_configuration = local.apim_config.vnet_injection_enabled ? {
+  virtual_network_type = local.apim_config.vnet_injection_enabled && local.apim_subnet_id != null ? "External" : "None"
+  virtual_network_configuration = local.apim_config.vnet_injection_enabled && local.apim_subnet_id != null ? {
     subnet_id = local.apim_subnet_id
   } : null
 
