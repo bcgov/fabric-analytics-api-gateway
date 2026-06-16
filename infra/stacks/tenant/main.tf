@@ -113,8 +113,9 @@ resource "azurerm_api_management_backend" "graphql" {
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = data.terraform_remote_state.shared.outputs.apim_name
   protocol            = "http"
-  url                 = each.value.endpoint.backend_url
-  description         = each.value.endpoint.description != "" ? each.value.endpoint.description : "Fabric GraphQL backend: ${each.value.endpoint.name}"
+  # Fabric endpoint URL is redacted in plan/apply output (sensitive choice).
+  url         = sensitive(each.value.endpoint.backend_url)
+  description = each.value.endpoint.description != "" ? each.value.endpoint.description : "Fabric GraphQL backend: ${each.value.endpoint.name}"
 
   circuit_breaker_rule {
     name                       = "fabric-graphql-breaker"
@@ -140,8 +141,9 @@ resource "azurerm_api_management_backend" "sql" {
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = data.terraform_remote_state.shared.outputs.apim_name
   protocol            = "http"
-  url                 = each.value.endpoint.backend_url
-  description         = each.value.endpoint.description != "" ? each.value.endpoint.description : "Fabric SQL Analytics backend: ${each.value.endpoint.name}"
+  # Fabric endpoint URL is redacted in plan/apply output (sensitive choice).
+  url         = sensitive(each.value.endpoint.backend_url)
+  description = each.value.endpoint.description != "" ? each.value.endpoint.description : "Fabric SQL Analytics backend: ${each.value.endpoint.name}"
 
   circuit_breaker_rule {
     name                       = "fabric-sql-breaker"
@@ -171,7 +173,9 @@ resource "azurerm_api_management_api_policy" "fabric" {
   api_name            = each.key
   api_management_name = data.terraform_remote_state.shared.outputs.apim_name
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
-  xml_content         = each.value
+  # Rendered policy embeds the Fabric endpoint URL (set-backend-service base-url),
+  # so redact it in plan/apply output to keep the endpoint out of logs.
+  xml_content = sensitive(each.value)
 
   # Policy XML references backends by name — Terraform can't infer that from
   # XML strings, so explicit depends_on is required.
@@ -214,28 +218,44 @@ resource "azurerm_api_management_product_api" "sql" {
 }
 
 # ---------------------------------------------------------------------------
-# Defender for APIs — registers each API with Defender for Cloud
+# Defender for APIs — registers each API with Defender for Cloud.
+#
+# OPT-IN (var.defender_enabled, default false): onboarding an apiCollection is a
+# long-running operation that only reaches a terminal state when the Defender
+# for APIs plan is enabled on the subscription. Without it, the azapi create
+# polls until its timeout (~30 min) and drags out every tenant apply. Enable
+# this only where the Defender for APIs plan is on; the bounded create/delete
+# timeouts then fail fast instead of hanging.
 # Skipped when APIM ID is null (APIM disabled in shared stack).
-# Uses plan-time-known keys from local.graphql_apis / local.sql_apis.
 # ---------------------------------------------------------------------------
 resource "azapi_resource" "defender_graphql" {
-  for_each = local.apim_id != null ? local.graphql_apis : {}
+  for_each = var.defender_enabled && local.apim_id != null ? local.graphql_apis : {}
 
   type      = "Microsoft.Security/apiCollections@2023-11-15"
   name      = each.key
   parent_id = local.apim_id
   body      = {}
+
+  timeouts {
+    create = "10m"
+    delete = "10m"
+  }
 
   depends_on = [azurerm_api_management_api.graphql]
 }
 
 resource "azapi_resource" "defender_sql" {
-  for_each = local.apim_id != null ? local.sql_apis : {}
+  for_each = var.defender_enabled && local.apim_id != null ? local.sql_apis : {}
 
   type      = "Microsoft.Security/apiCollections@2023-11-15"
   name      = each.key
   parent_id = local.apim_id
   body      = {}
+
+  timeouts {
+    create = "10m"
+    delete = "10m"
+  }
 
   depends_on = [azurerm_api_management_api.sql]
 }

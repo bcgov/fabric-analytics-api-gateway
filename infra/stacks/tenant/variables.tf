@@ -60,6 +60,15 @@ variable "backend_container_name" {
 }
 
 # ---------------------------------------------------------------------------
+# Defender for APIs
+# ---------------------------------------------------------------------------
+variable "defender_enabled" {
+  description = "Register each APIM API with Microsoft Defender for APIs. Opt-in: requires the Defender for APIs plan enabled on the subscription, otherwise the apiCollection onboarding is a slow long-running operation that times out (~30 min) and drags out every apply."
+  type        = bool
+  default     = false
+}
+
+# ---------------------------------------------------------------------------
 # Tenant configurations
 # ---------------------------------------------------------------------------
 variable "tenants" {

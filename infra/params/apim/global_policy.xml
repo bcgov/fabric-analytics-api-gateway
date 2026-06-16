@@ -15,6 +15,16 @@
                   failed-validation-httpcode="401"
                   failed-validation-error-message="Unauthorized — a valid BCGov Entra ID token is required">
       <openid-config url="https://login.microsoftonline.com/{{bcgov-entra-tenant-id}}/v2.0/.well-known/openid-configuration" />
+      <!--
+        Accept BOTH v1.0 and v2.0 token issuers for the tenant. Fabric / Power BI
+        tokens (aud = analysis.windows.net/powerbi/api) are issued as v1.0 with the
+        sts.windows.net issuer; without this, APIM validates iss against only the
+        v2.0 metadata issuer and rejects valid v1.0 tokens with 401.
+      -->
+      <issuers>
+        <issuer>https://sts.windows.net/{{bcgov-entra-tenant-id}}/</issuer>
+        <issuer>https://login.microsoftonline.com/{{bcgov-entra-tenant-id}}/v2.0</issuer>
+      </issuers>
     </validate-jwt>
   </inbound>
   <backend>

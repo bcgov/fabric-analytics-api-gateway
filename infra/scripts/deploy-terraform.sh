@@ -105,6 +105,77 @@ if [[ -d "${PARAMS_DIR}/tenants" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Remote tenant configs (optional) — keep Fabric endpoint URLs out of the repo
+# AND out of GitHub secrets. When TENANT_CONFIG_CONTAINER is set, tenant tfvars
+# live as blobs in the state storage account (public data plane — no private
+# endpoint needed, unlike Key Vault). Every <env>/*.tfvars blob is downloaded
+# and fed to the tenant stack as -var-file, alongside any local
+# tenants/**/tenant.tfvars. Unset → no-op (fully backward compatible).
+# ---------------------------------------------------------------------------
+REMOTE_TENANT_VAR_FILES=()
+REMOTE_TENANT_DIR=""
+
+cleanup_remote_tenant_configs() {
+  [[ -n "${REMOTE_TENANT_DIR}" && -d "${REMOTE_TENANT_DIR}" ]] && rm -rf "${REMOTE_TENANT_DIR}"
+}
+trap cleanup_remote_tenant_configs EXIT
+
+fetch_remote_tenant_configs() {
+  local container="${TENANT_CONFIG_CONTAINER:-}"
+  [[ -z "${container}" ]] && return 0
+
+  if ! command -v az >/dev/null 2>&1; then
+    echo "  ⚠ TENANT_CONFIG_CONTAINER set but az CLI not found — skipping remote tenant configs." >&2
+    return 0
+  fi
+
+  echo "  Fetching remote tenant configs: ${BACKEND_STORAGE_ACCOUNT}/${container}/${ENVIRONMENT}/*.tfvars"
+  REMOTE_TENANT_DIR="$(mktemp -d)"
+
+  # Prefer AAD (Storage Blob Data Reader); fall back to the account key — the
+  # same credential the azurerm state backend already uses for this account.
+  local -a auth=(--auth-mode login)
+  if ! az storage blob list --account-name "${BACKEND_STORAGE_ACCOUNT}" \
+        --container-name "${container}" --prefix "${ENVIRONMENT}/" \
+        --auth-mode login --only-show-errors -o none >/dev/null 2>&1; then
+    local key
+    key="$(az storage account keys list --account-name "${BACKEND_STORAGE_ACCOUNT}" \
+           --resource-group "${BACKEND_RESOURCE_GROUP}" \
+           --query '[0].value' -o tsv 2>/dev/null || true)"
+    [[ -n "${key}" ]] && auth=(--account-key "${key}")
+  fi
+
+  if ! az storage blob download-batch \
+        --account-name "${BACKEND_STORAGE_ACCOUNT}" \
+        --source "${container}" \
+        --pattern "${ENVIRONMENT}/*.tfvars" \
+        --destination "${REMOTE_TENANT_DIR}" \
+        "${auth[@]}" --only-show-errors >/dev/null 2>&1; then
+    echo "  ⚠ No remote tenant configs downloaded for env '${ENVIRONMENT}' (container/blobs may not exist yet)." >&2
+    return 0
+  fi
+
+  while IFS= read -r -d '' f; do
+    REMOTE_TENANT_VAR_FILES+=("$f")
+    echo "    + remote tenant config: $(basename "$f")"
+  done < <(find "${REMOTE_TENANT_DIR}" -name '*.tfvars' -print0 | sort -z)
+}
+
+# ---------------------------------------------------------------------------
+# has_tenant_configs
+# True when at least one tenant config (local tenant.tfvars or downloaded blob)
+# is present. Used to SKIP the tenant stack on plan/apply when no config is
+# available — otherwise Terraform would see tenants = {} and DESTROY every
+# existing tenant resource. This guards against a CI run that lacks the config
+# (e.g. blob not uploaded yet) silently wiping live tenants. Removing a tenant
+# is still possible via `destroy`, or by applying with the remaining tenants.
+# ---------------------------------------------------------------------------
+has_tenant_configs() {
+  local n=$(( ${#TENANT_VAR_FILES[@]} + ${#REMOTE_TENANT_VAR_FILES[@]} ))
+  [[ "${n}" -gt 0 ]]
+}
+
+# ---------------------------------------------------------------------------
 # var_file_args <stack>
 # Build the -var-file flag list for a stack:
 #   Both stacks  → common.tfvars
@@ -121,6 +192,9 @@ var_file_args() {
       ;;
     tenant)
       for f in "${TENANT_VAR_FILES[@]+"${TENANT_VAR_FILES[@]}"}"; do
+        args+=("-var-file=${f}")
+      done
+      for f in "${REMOTE_TENANT_VAR_FILES[@]+"${REMOTE_TENANT_VAR_FILES[@]}"}"; do
         args+=("-var-file=${f}")
       done
       ;;
@@ -588,19 +662,36 @@ import_resource() {
 echo "Fabric Gateway — ${COMMAND} — environment: ${ENVIRONMENT}"
 echo "State: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}"
 
+# Pull any remote tenant configs (no-op unless TENANT_CONFIG_CONTAINER is set).
+fetch_remote_tenant_configs
+
 # ---------------------------------------------------------------------------
 # Execution
 # ---------------------------------------------------------------------------
 case "${COMMAND}" in
   plan)
     run_stack "shared"
-    plan_tenant_graceful
+    if has_tenant_configs; then
+      plan_tenant_graceful
+    else
+      echo ""
+      echo "  (No tenant configs present — skipping tenant plan. Add a local"
+      echo "   tenant.tfvars or set TENANT_CONFIG_CONTAINER with uploaded blobs.)"
+    fi
     ;;
 
   apply)
     apply_stack "shared"
     wait_for_dns_zone
-    apply_stack "tenant"
+    if has_tenant_configs; then
+      apply_stack "tenant"
+    else
+      echo ""
+      echo "⚠ No tenant configs found — SKIPPING the tenant stack so this apply"
+      echo "  cannot destroy existing tenant resources. To manage tenants, supply"
+      echo "  a local params/${ENVIRONMENT}/tenants/**/tenant.tfvars or set"
+      echo "  TENANT_CONFIG_CONTAINER and upload <env>/*.tfvars blobs."
+    fi
     ;;
 
   destroy)
