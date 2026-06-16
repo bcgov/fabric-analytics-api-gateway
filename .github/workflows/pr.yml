@@ -3,8 +3,7 @@ name: Infra PR
 on:
   pull_request:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: infra-pr-${{ github.event.pull_request.number }}
@@ -19,11 +18,11 @@ jobs:
   plan:
     permissions:
       id-token: write # required for requesting the OIDC JWT
-      contents: read  # required for actions/checkout
+      contents: read # required for actions/checkout
     needs: [lint]
     if: (!github.event.pull_request.head.repo.fork)
     uses: ./.github/workflows/.infra.yml
     with:
       environment_name: test
-      command: plan
+      command: apply # apply for the time being when it is being proved out.
     secrets: inherit
