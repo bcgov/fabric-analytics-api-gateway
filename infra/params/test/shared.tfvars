@@ -13,16 +13,7 @@ common_tags = {
   managed_by  = "terraform"
 }
 
-# ---------------------------------------------------------------------------
-# Networking — existing Landing Zone subnet IDs (test injects APIM into the VNet)
-# ---------------------------------------------------------------------------
-app_gateway_subnet_id = "/subscriptions/YOUR-SUB/resourceGroups/YOUR-VNET-RG/providers/Microsoft.Network/virtualNetworks/YOUR-VNET/subnets/appgw-subnet"
-apim_subnet_id        = "/subscriptions/YOUR-SUB/resourceGroups/YOUR-VNET-RG/providers/Microsoft.Network/virtualNetworks/YOUR-VNET/subnets/apim-subnet"
 
-# ---------------------------------------------------------------------------
-# BCGov Entra tenant
-# ---------------------------------------------------------------------------
-bcgov_entra_tenant_id = "YOUR-BCGOV-ENTRA-TENANT-ID"
 
 # ---------------------------------------------------------------------------
 # Shared infrastructure
@@ -50,14 +41,12 @@ shared_config = {
   apim = {
     enabled                = true
     sku_name               = "StandardV2_1"
-    publisher_name         = "BC Gov NRM Digital Services"
+    publisher_name         = "BC Gov CSBC EO DMI"
     publisher_email        = "Omprakash.2.Mishra@gov.bc.ca"
     vnet_injection_enabled = true
   }
 
   network = {
-    enabled                  = false
-    vnet_name                = null
-    vnet_resource_group_name = null
+    enabled                  = true
   }
 }
