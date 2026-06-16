@@ -104,9 +104,19 @@ to `tenant.tfvars` and filling in the real Fabric workspace/item IDs. Real
 - **`infra-manual.yml`** — `workflow_dispatch` to run `plan` or `apply` against a chosen
   environment. Use this to apply after a PR merges.
 - CI authenticates via Azure OIDC (`id-token: write`) and passes config as `TF_VAR_*`.
-  Required GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`,
-  `BACKEND_RESOURCE_GROUP`. Required vars: `BACKEND_STORAGE_ACCOUNT`
-  (`BACKEND_CONTAINER_NAME` optional, defaults to `tfstate`).
+  Configure these on the GitHub environment (e.g. `test`):
+
+  | Type | Name | Notes |
+  |------|------|-------|
+  | Secret | `AZURE_CLIENT_ID` | Managed Identity / SPN client ID |
+  | Secret | `AZURE_TENANT_ID` | Azure AD tenant ID |
+  | Secret | `AZURE_SUBSCRIPTION_ID` | Target subscription ID |
+  | Variable | `BACKEND_RESOURCE_GROUP` | RG holding Terraform state storage |
+  | Variable | `BACKEND_STORAGE_ACCOUNT` | Storage account name for Terraform state |
+  | Variable | `BACKEND_CONTAINER_NAME` | Blob container (defaults to `tfstate`) |
+
+  If `BACKEND_RESOURCE_GROUP` or `BACKEND_STORAGE_ACCOUNT` are not configured, PR plans
+  skip with a warning (lint still runs). Apply/destroy require both to be set.
 
 ## Validation gates
 

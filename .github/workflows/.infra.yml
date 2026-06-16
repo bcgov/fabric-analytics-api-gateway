@@ -49,7 +49,9 @@ jobs:
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_use_oidc: "true"
-          BACKEND_RESOURCE_GROUP: ${{ secrets.BACKEND_RESOURCE_GROUP }}
+          # BACKEND_RESOURCE_GROUP is not sensitive (just an RG name) — stored as a
+          # GitHub Actions variable so it can be inspected in `if:` conditions.
+          BACKEND_RESOURCE_GROUP: ${{ vars.BACKEND_RESOURCE_GROUP }}
           BACKEND_STORAGE_ACCOUNT: ${{ vars.BACKEND_STORAGE_ACCOUNT }}
           BACKEND_CONTAINER_NAME: ${{ vars.BACKEND_CONTAINER_NAME || 'tfstate' }}
           # Pass workflow inputs via env to avoid shell injection.
@@ -58,4 +60,17 @@ jobs:
           INPUT_ENVIRONMENT: ${{ inputs.environment_name }}
         run: |
           set -euo pipefail
+          # Guard: backend storage config is required. For plan runs we emit a
+          # warning and exit 0 so PRs don't fail when the environment has not
+          # been provisioned yet (lint already validates the structure). For
+          # apply/destroy we fail fast — never apply without a real state backend.
+          if [[ -z "${BACKEND_RESOURCE_GROUP}" || -z "${BACKEND_STORAGE_ACCOUNT}" ]]; then
+            if [[ "${INPUT_COMMAND}" == "plan" ]]; then
+              echo "::warning::BACKEND_RESOURCE_GROUP or BACKEND_STORAGE_ACCOUNT not configured in the '${INPUT_ENVIRONMENT}' environment — skipping Terraform plan. Set both as GitHub Actions variables on the environment to enable plans."
+              exit 0
+            else
+              echo "::error::BACKEND_RESOURCE_GROUP and BACKEND_STORAGE_ACCOUNT must be set as GitHub Actions variables on the '${INPUT_ENVIRONMENT}' environment before running ${INPUT_COMMAND}."
+              exit 1
+            fi
+          fi
           ./infra/scripts/deploy-terraform.sh "$INPUT_COMMAND" "$INPUT_ENVIRONMENT" --auto-approve
