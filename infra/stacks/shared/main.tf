@@ -124,9 +124,11 @@ resource "azurerm_api_management_named_value" "bcgov_entra_tenant_id" {
   name                = "bcgov-entra-tenant-id"
   resource_group_name = azurerm_resource_group.this.name
   api_management_name = module.apim[0].name
-  display_name        = "BCGov_Entra_Tenant_ID"
-  value               = var.bcgov_entra_tenant_id
-  secret              = false
+  # display_name is the key the policy references via {{bcgov-entra-tenant-id}};
+  # APIM resolves {{...}} against display_name, not name, so they must match.
+  display_name = "bcgov-entra-tenant-id"
+  value        = var.bcgov_entra_tenant_id
+  secret       = false
 }
 
 # ---------------------------------------------------------------------------
