@@ -49,6 +49,19 @@ output "app_gateway_public_ip" {
 }
 
 # ---------------------------------------------------------------------------
+# Front Door outputs — null when shared_config.front_door is disabled
+# ---------------------------------------------------------------------------
+output "front_door_endpoint_hostname" {
+  description = "Public Front Door hostname (*.azurefd.net) — call the gateway through this"
+  value       = local.front_door_config.enabled && local.apim_config.enabled ? module.front_door[0].endpoint_hostname : null
+}
+
+output "front_door_id" {
+  description = "Front Door ID matched against X-Azure-FDID to lock APIM to this Front Door"
+  value       = local.front_door_config.enabled && local.apim_config.enabled ? module.front_door[0].front_door_id : null
+}
+
+# ---------------------------------------------------------------------------
 # Network module outputs — null when shared_config.network is disabled
 # ---------------------------------------------------------------------------
 output "apim_subnet_id" {

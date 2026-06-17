@@ -44,6 +44,13 @@ shared_config = {
     vnet_injection_enabled = true
   }
 
+  # Front Door front door — managed *.azurefd.net hostname + TLS; APIM is locked
+  # to this Front Door via X-Azure-FDID. (App Gateway stays disabled.)
+  front_door = {
+    enabled  = true
+    sku_name = "Standard_AzureFrontDoor"
+  }
+
   network = {
     enabled = true
   }

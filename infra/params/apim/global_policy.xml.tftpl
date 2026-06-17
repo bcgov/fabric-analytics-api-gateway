@@ -1,5 +1,17 @@
 <policies>
   <inbound>
+%{ if front_door_enabled ~}
+    <!--
+      Origin lock — accept traffic ONLY from our Azure Front Door.
+      Front Door injects X-Azure-FDID with its Front Door ID on every request.
+      {{frontdoor-id}} is an APIM Named Value set by Terraform to our profile's
+      ID, so requests that bypass Front Door (or come via someone else's AFD)
+      are rejected with 403.
+    -->
+    <check-header name="X-Azure-FDID" failed-check-httpcode="403" failed-check-error-message="Forbidden — requests must arrive through the gateway Front Door" ignore-case="true">
+      <value>{{frontdoor-id}}</value>
+    </check-header>
+%{ endif ~}
     <!-- Set correlation ID for request tracing -->
     <set-header name="x-ms-correlation-request-id" exists-action="skip">
         <value>@(context.RequestId.ToString())</value>

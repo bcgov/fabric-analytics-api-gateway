@@ -133,5 +133,10 @@ tflint --recursive
 
 ## Further reading
 
+- [docs/managing-tenants.md](docs/managing-tenants.md) — add a tenant, or add/update
+  GraphQL and SQL Analytics endpoints.
+- [docs/client-authentication.md](docs/client-authentication.md) — how callers acquire
+  a token: Entra service principal (non-Azure workloads) and managed identity (Azure
+  workloads).
 - `AGENTS.md` — architecture, conventions, and the BC Gov working agreement.
 - `.github/skills/` — agent profiles (`iac-coder`, `app-gateway`).

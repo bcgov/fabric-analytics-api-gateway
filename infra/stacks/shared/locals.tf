@@ -3,6 +3,7 @@ locals {
 
   apim_config          = var.shared_config.apim
   app_gateway_config   = var.shared_config.app_gateway
+  front_door_config    = var.shared_config.front_door
   log_analytics_config = var.shared_config.log_analytics
   network_config       = var.shared_config.network
 

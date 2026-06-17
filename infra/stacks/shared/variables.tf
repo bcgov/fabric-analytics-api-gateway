@@ -131,6 +131,22 @@ variable "shared_config" {
       vnet_injection_enabled = optional(bool, false)
     }), {})
 
+    # Azure Front Door — managed *.azurefd.net hostname + Microsoft-managed TLS
+    # (no vanity domain or cert needed). When enabled, APIM is locked to this
+    # Front Door via the X-Azure-FDID header, so only our AFD can reach it.
+    # WAF: custom rules (rate limit, geo, require-Authorization) apply on both
+    # SKUs; Microsoft-managed OWASP + Bot rule sets are added only on Premium.
+    front_door = optional(object({
+      enabled  = optional(bool, false)
+      sku_name = optional(string, "Standard_AzureFrontDoor")
+      waf = optional(object({
+        enabled              = optional(bool, true)
+        mode                 = optional(string, "Prevention")
+        allowed_countries    = optional(list(string), ["CA"])
+        rate_limit_threshold = optional(number, 1000)
+      }), {})
+    }), {})
+
     # When enabled with vnet_name + vnet_resource_group_name set, the network
     # module carves the App Gateway subnet out of an existing VNet, and the App
     # Gateway uses that subnet instead of var.app_gateway_subnet_id.

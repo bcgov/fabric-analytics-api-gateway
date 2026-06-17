@@ -116,6 +116,28 @@ module "apim" {
 }
 
 # ---------------------------------------------------------------------------
+# Front Door — managed *.azurefd.net hostname + Microsoft-managed TLS in front
+# of APIM. APIM is locked to this Front Door via X-Azure-FDID (global policy).
+# ---------------------------------------------------------------------------
+module "front_door" {
+  source = "../../modules/front-door"
+  count  = local.front_door_config.enabled && local.apim_config.enabled ? 1 : 0
+
+  name                = "${local.name_prefix}-fd"
+  endpoint_name       = local.name_prefix
+  resource_group_name = azurerm_resource_group.this.name
+  sku_name            = local.front_door_config.sku_name
+  origin_host         = local.apim_gateway_fqdn
+
+  waf_enabled              = local.front_door_config.waf.enabled
+  waf_mode                 = local.front_door_config.waf.mode
+  waf_allowed_countries    = local.front_door_config.waf.allowed_countries
+  waf_rate_limit_threshold = local.front_door_config.waf.rate_limit_threshold
+
+  tags = var.common_tags
+}
+
+# ---------------------------------------------------------------------------
 # BCGov Entra tenant ID Named Value — referenced in global JWT validation policy
 # ---------------------------------------------------------------------------
 resource "azurerm_api_management_named_value" "bcgov_entra_tenant_id" {
@@ -132,13 +154,36 @@ resource "azurerm_api_management_named_value" "bcgov_entra_tenant_id" {
 }
 
 # ---------------------------------------------------------------------------
-# APIM Global Policy — validates all inbound tokens against BCGov Entra
+# Front Door ID Named Value — referenced by the global policy's X-Azure-FDID
+# check so APIM accepts traffic only from our Front Door. Created only when
+# Front Door is enabled (the policy includes the check only then).
+# ---------------------------------------------------------------------------
+resource "azurerm_api_management_named_value" "frontdoor_id" {
+  count = local.apim_config.enabled && local.front_door_config.enabled ? 1 : 0
+
+  name                = "frontdoor-id"
+  resource_group_name = azurerm_resource_group.this.name
+  api_management_name = module.apim[0].name
+  display_name        = "frontdoor-id" # policy references {{frontdoor-id}} → must match display_name
+  value               = module.front_door[0].front_door_id
+  secret              = false
+}
+
+# ---------------------------------------------------------------------------
+# APIM Global Policy — validates all inbound tokens against BCGov Entra, and
+# (when Front Door is enabled) rejects any request not carrying our Front Door's
+# X-Azure-FDID, locking the origin to our Front Door.
 # ---------------------------------------------------------------------------
 resource "azurerm_api_management_policy" "global" {
   count = local.apim_config.enabled ? 1 : 0
 
   api_management_id = module.apim[0].id
-  xml_content       = file("${path.root}/../../params/apim/global_policy.xml")
+  xml_content = templatefile("${path.root}/../../params/apim/global_policy.xml.tftpl", {
+    front_door_enabled = local.front_door_config.enabled
+  })
 
-  depends_on = [azurerm_api_management_named_value.bcgov_entra_tenant_id]
+  depends_on = [
+    azurerm_api_management_named_value.bcgov_entra_tenant_id,
+    azurerm_api_management_named_value.frontdoor_id,
+  ]
 }
