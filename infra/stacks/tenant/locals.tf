@@ -38,13 +38,8 @@ locals {
     if length(pair.product_config.graphql_endpoints) > 0
   }
 
-  sql_apis = {
-    for pair_key, pair in local.tenant_products : "${pair_key}-sql" => pair
-    if length(pair.product_config.sql_analytics_endpoints) > 0
-  }
-
-  # All APIs combined for operations (same catch-all operation for both types)
-  all_apis = merge(local.graphql_apis, local.sql_apis)
+  # All APIs for operations (catch-all operations on each API)
+  all_apis = local.graphql_apis
 
   # HTTP methods that receive catch-all operations on each API
   api_methods = ["POST", "GET", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
@@ -81,20 +76,6 @@ locals {
     ]) : triple.key => triple
   }
 
-  sql_backends = {
-    for triple in flatten([
-      for api_key, pair in local.sql_apis : [
-        for endpoint in pair.product_config.sql_analytics_endpoints : {
-          key           = "${pair.tenant_key}-${pair.product_key}-sql-${endpoint.name}"
-          api_key       = api_key
-          endpoint      = endpoint
-          tenant_key    = pair.tenant_key
-          product_key   = pair.product_key
-          endpoint_type = "sql"
-        }
-      ]
-    ]) : triple.key => triple
-  }
 
   # ---------------------------------------------------------------------------
   # APIM API policies — generated from template for each API
@@ -110,16 +91,5 @@ locals {
     )
   }
 
-  sql_api_policies = {
-    for api_key, pair in local.sql_apis : api_key => templatefile(
-      "${path.root}/../../params/apim/templates/fabric-sql-api-policy.xml.tftpl",
-      {
-        tenant_name  = pair.tenant_key
-        product_name = pair.product_key
-        endpoints    = pair.product_config.sql_analytics_endpoints
-      }
-    )
-  }
-
-  all_api_policies = merge(local.graphql_api_policies, local.sql_api_policies)
+  all_api_policies = local.graphql_api_policies
 }

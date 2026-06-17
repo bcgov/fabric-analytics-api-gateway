@@ -50,16 +50,17 @@ Entra app registration in the BC Gov tenant** — so start here before you build
   permission first. The portal and CLI steps still work, but **only inside the
   access-package window** described in Flow A, step 1.
 
-- **Two authentication patterns are in scope** for reaching Fabric GraphQL and SQL
-  analytics endpoints from clients hosted *outside* Fabric (apps, APIs, Kong-fronted
-  integration layers — not notebooks or pipelines inside a workspace):
+- **Authentication for Fabric GraphQL endpoints** — this gateway exposes Fabric
+  GraphQL endpoints for clients hosted *outside* Fabric (apps, APIs, Kong-fronted
+  integration layers — not notebooks or pipelines inside a workspace).
+  Two authentication patterns apply:
   1. **End-user (delegated) token** — an IDIR/Entra user signs in and the client
      calls Fabric on the user's behalf (including on-behalf-of / OBO from a
      backend). Use this where row-level / user-scoped authorization matters.
   2. **Service principal (client credentials)** — an Entra app registration with a
      client secret or certificate, for service-to-service / unattended workloads.
      The SP is added to the Fabric workspace and granted item-level permissions
-     (e.g. *Read all data using SQL analytics endpoint*).
+     (e.g. *Read all data using Fabric GraphQL API*).
 
 - **Managed Identity is still valid for workloads that run on Azure.** When the
   caller runs on Azure (App Service, Functions, Container Apps, AKS, VMs/VMSS), it
@@ -249,9 +250,8 @@ This is done by a **Fabric/Power BI admin** and a **workspace admin**:
    security group; add the app's service principal to that group.
 2. **Workspace access:** add the service principal *and/or* the user (or their
    groups) to the Fabric workspace with a role that can read the GraphQL API / data
-   (e.g. Viewer or Member), and grant access to the GraphQL API item, the SQL
-   analytics endpoint, and the underlying data source (e.g. *Read all data using
-   SQL analytics endpoint*).
+   (e.g. Viewer or Member), and grant access to the GraphQL API item and the
+   underlying data source.
 
 > A token whose identity **isn't** in the target workspace yet returns a
 > Fabric-level error (a 200 with no data, or an authorization error) — not a gateway
@@ -335,6 +335,8 @@ curl -X POST "https://<afd-hostname>/<tenant>/<product>/graphql/<endpoint>" \
 The token's path is: **client → Front Door (WAF) → APIM (issuer + Front-Door check)
 → Fabric**. You never send the `X-Azure-FDID` header yourself — Front Door injects
 it.
+
+---
 
 ## Troubleshooting
 

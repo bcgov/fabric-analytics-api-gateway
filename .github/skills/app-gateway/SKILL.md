@@ -41,7 +41,7 @@ Use this skill profile when creating or modifying the Azure Application Gateway 
 
 Keep this request flow intact unless the user explicitly asks to redesign it:
 
-`Client -> Application Gateway listener/WAF/rewrite -> APIM (StandardV2) gateway -> Fabric GraphQL / SQL Analytics`
+`Client -> Application Gateway listener/WAF/rewrite -> APIM (StandardV2) gateway -> Fabric GraphQL`
 
 Implications:
 

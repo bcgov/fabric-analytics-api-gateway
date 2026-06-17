@@ -76,13 +76,12 @@ variable "tenants" {
     Map of tenant configurations. Each tenant key becomes the URL prefix segment
     (e.g. "wlrs" → paths starting with /wlrs/...).
 
-    Each tenant has a map of products. Each product has graphql_endpoints and/or
-    sql_analytics_endpoints. Each endpoint carries a name (URL segment) and a
-    backend_url pointing to the Fabric REST API endpoint.
+    Each tenant has a map of products. Each product has graphql_endpoints. Each
+    endpoint carries a name (URL segment) and a backend_url pointing to the Fabric
+    GraphQL API endpoint.
 
     URL routing:
       GET/POST /{tenant}/{product}/graphql/{endpoint-name}  → Fabric GraphQL endpoint
-      GET/POST /{tenant}/{product}/sql/{endpoint-name}      → Fabric SQL Analytics endpoint
 
     APIM validates that the inbound Authorization Bearer token is issued by the
     BCGov Entra tenant, then forwards it unchanged to Fabric. Fabric performs
@@ -97,11 +96,6 @@ variable "tenants" {
       description           = optional(string, "")
       subscription_required = optional(bool, false)
       graphql_endpoints = optional(list(object({
-        name        = string
-        backend_url = string
-        description = optional(string, "")
-      })), [])
-      sql_analytics_endpoints = optional(list(object({
         name        = string
         backend_url = string
         description = optional(string, "")

@@ -58,23 +58,6 @@ resource "azurerm_api_management_api" "graphql" {
   depends_on = [azurerm_api_management_product.fabric]
 }
 
-resource "azurerm_api_management_api" "sql" {
-  for_each = local.sql_apis
-
-  name                = each.key
-  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
-  api_management_name = data.terraform_remote_state.shared.outputs.apim_name
-  revision            = "1"
-  display_name        = "${each.value.tenant_config.display_name} — ${each.value.product_config.display_name} SQL Analytics"
-  description         = "Fabric SQL Analytics endpoints for ${each.value.product_config.display_name}"
-  # Path pattern: {tenant}/{product}/sql  → e.g. wlrs/fish-wildlife/sql
-  path                  = "${each.value.tenant_key}/${each.value.product_key}/sql"
-  protocols             = ["https"]
-  subscription_required = each.value.product_config.subscription_required
-  api_type              = "http"
-
-  depends_on = [azurerm_api_management_product.fabric]
-}
 
 # ---------------------------------------------------------------------------
 # APIM Operations — catch-all for every HTTP method on each API
@@ -95,7 +78,6 @@ resource "azurerm_api_management_api_operation" "fabric" {
   # transient 400 ValidationError from Azure control plane.
   depends_on = [
     azurerm_api_management_api.graphql,
-    azurerm_api_management_api.sql,
   ]
 
   response {
@@ -134,33 +116,6 @@ resource "azurerm_api_management_backend" "graphql" {
   }
 }
 
-resource "azurerm_api_management_backend" "sql" {
-  for_each = local.sql_backends
-
-  name                = each.key
-  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
-  api_management_name = data.terraform_remote_state.shared.outputs.apim_name
-  protocol            = "http"
-  # Fabric endpoint URL is redacted in plan/apply output (sensitive choice).
-  url         = sensitive(each.value.endpoint.backend_url)
-  description = each.value.endpoint.description != "" ? each.value.endpoint.description : "Fabric SQL Analytics backend: ${each.value.endpoint.name}"
-
-  circuit_breaker_rule {
-    name                       = "fabric-sql-breaker"
-    trip_duration              = "PT1M"
-    accept_retry_after_enabled = true
-
-    failure_condition {
-      count             = 3
-      interval_duration = "PT1M"
-
-      status_code_range {
-        min = 500
-        max = 599
-      }
-    }
-  }
-}
 
 # ---------------------------------------------------------------------------
 # APIM API Policies — JWT validation (global) + endpoint routing (per-API)
@@ -181,7 +136,6 @@ resource "azurerm_api_management_api_policy" "fabric" {
   # XML strings, so explicit depends_on is required.
   depends_on = [
     azurerm_api_management_backend.graphql,
-    azurerm_api_management_backend.sql,
     azurerm_api_management_api_operation.fabric,
   ]
 }
@@ -203,19 +157,6 @@ resource "azurerm_api_management_product_api" "graphql" {
   ]
 }
 
-resource "azurerm_api_management_product_api" "sql" {
-  for_each = local.sql_apis
-
-  api_name            = each.key
-  product_id          = "${each.value.tenant_key}-${each.value.product_key}"
-  api_management_name = data.terraform_remote_state.shared.outputs.apim_name
-  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
-
-  depends_on = [
-    azurerm_api_management_product.fabric,
-    azurerm_api_management_api.sql,
-  ]
-}
 
 # ---------------------------------------------------------------------------
 # Defender for APIs — registers each API with Defender for Cloud.
@@ -244,18 +185,3 @@ resource "azapi_resource" "defender_graphql" {
   depends_on = [azurerm_api_management_api.graphql]
 }
 
-resource "azapi_resource" "defender_sql" {
-  for_each = var.defender_enabled && local.apim_id != null ? local.sql_apis : {}
-
-  type      = "Microsoft.Security/apiCollections@2023-11-15"
-  name      = each.key
-  parent_id = local.apim_id
-  body      = {}
-
-  timeouts {
-    create = "10m"
-    delete = "10m"
-  }
-
-  depends_on = [azurerm_api_management_api.sql]
-}

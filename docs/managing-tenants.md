@@ -1,8 +1,8 @@
 # Managing tenants and endpoints
 
-The gateway exposes Microsoft Fabric **GraphQL** and **SQL Analytics** endpoints
-through APIM, organized by *tenant* and *product*. This guide walks through adding a
-new tenant and adding or updating endpoints on an existing one.
+The gateway exposes Microsoft Fabric **GraphQL** endpoints through APIM,
+organized by *tenant* and *product*. This guide covers adding a new tenant and
+adding or updating GraphQL endpoints on an existing one.
 
 ## How the model maps to URLs
 
@@ -11,15 +11,13 @@ tenants
 └── <tenant>            # e.g. citz-eo-dmi-om  → first URL segment
     └── products
         └── <product>   # e.g. dmi             → second URL segment
-            ├── graphql_endpoints[]        # each → /{tenant}/{product}/graphql/{name}
-            └── sql_analytics_endpoints[]  # each → /{tenant}/{product}/sql/{name}
+            └── graphql_endpoints[]        # each → /{tenant}/{product}/graphql/{name}
 ```
 
-So a request routes like this:
+A request routes like this:
 
 ```
 POST /{tenant}/{product}/graphql/{endpoint-name}   → Fabric GraphQL backend
-POST /{tenant}/{product}/sql/{endpoint-name}        → Fabric SQL Analytics backend
 ```
 
 APIM checks that the inbound `Authorization: Bearer` token comes from the BCGov
@@ -52,31 +50,22 @@ tenants = {
             description = "CITZ EO DMI Fabric GraphQL API"
           },
         ]
-
-        # Fabric SQL Analytics endpoints (Lakehouse/Warehouse SQL endpoint).
-        sql_analytics_endpoints = [
-          # {
-          #   name        = "reporting"   # → /citz-eo-dmi-om/dmi/sql/reporting
-          #   backend_url = "https://<workspace-id>.datawarehouse.fabric.microsoft.com"
-          #   description = "Reporting warehouse"
-          # },
-        ]
       }
     }
   }
 }
 ```
 
-### Backend URL formats
+### Backend URL format
 
-| Type | `backend_url` shape |
-|------|---------------------|
-| Fabric GraphQL | `https://<wsid>.<zone>.graphql.fabric.microsoft.com/v1/workspaces/<wsid>/graphqlapis/<api-id>/graphql` (copy the exact POST URL from the Fabric GraphQL API page) |
-| Fabric SQL Analytics | `https://<wsid>.datawarehouse.fabric.microsoft.com` (the SQL connection/endpoint host) |
+The `backend_url` for GraphQL endpoints is the full POST URL from the Fabric GraphQL API page, formatted as:
+```
+https://<workspace-id>.<zone>.graphql.fabric.microsoft.com/v1/workspaces/<workspace-id>/graphqlapis/<api-id>/graphql
+```
 
-The `backend_url` is **configuration, not a secret** — it's just resource GUIDs, and
-access is gated by the JWT plus Fabric's own authorization. Even so, we keep it out
-of the repo, and it's redacted in `terraform plan` output via `sensitive()`.
+This is **configuration, not a secret** — it's just resource GUIDs, and access is gated
+by the JWT plus Fabric's own authorization. We keep it out of the repo and redact it in
+`terraform plan` output via `sensitive()`.
 
 ## Where tenant config lives
 
@@ -145,10 +134,10 @@ downloads every `<env>/*.tfvars` blob, alongside any local
    # → https://<that-host>/<tenant>/<product>/graphql/<endpoint-name>
    ```
 
-## Add or update endpoints on an existing tenant
+## Add or update GraphQL endpoints on an existing tenant
 
-1. Edit the tenant's `tenant.tfvars` — append to `graphql_endpoints` (or
-   `sql_analytics_endpoints`). Each new object's `name` becomes a new URL segment:
+1. Edit the tenant's `tenant.tfvars` — append to `graphql_endpoints`. Each new
+   object's `name` becomes a new URL segment:
 
    ```hcl
    graphql_endpoints = [
@@ -184,9 +173,8 @@ terraform fmt -recursive
 ./scripts/deploy-terraform.sh plan <env>   # review: new backends/APIs to add
 ```
 
-Endpoint URLs are exposed as non-sensitive outputs for convenience:
+GraphQL endpoint URLs are exposed as non-sensitive outputs for convenience:
 
 ```bash
 terraform -chdir=stacks/tenant output graphql_endpoint_urls
-terraform -chdir=stacks/tenant output sql_endpoint_urls
 ```

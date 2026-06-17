@@ -2,8 +2,8 @@
 
 Guidance for AI coding agents working in **fabric-analytics-api-gateway**.
 
-> Status: **draft / POC.** This repo exposes Microsoft Fabric data (GraphQL and SQL
-> Analytics endpoints) through an Azure API gateway. Expect real hostnames,
+> Status: **draft / POC.** This repo exposes Microsoft Fabric data (GraphQL
+> endpoints) through an Azure API gateway. Expect real hostnames,
 > subscription/tenant IDs, and network identifiers to be **placeholders** unless a
 > task says otherwise — never guess them.
 
@@ -11,7 +11,7 @@ Guidance for AI coding agents working in **fabric-analytics-api-gateway**.
 
 Terraform IaC that stands up an Azure-native gateway in front of Microsoft Fabric:
 
-- **Azure API Management (StandardV2)** — fronts Fabric GraphQL & SQL Analytics endpoints.
+- **Azure API Management (StandardV2)** — fronts Fabric GraphQL endpoints.
 - **Application Gateway + WAF policy** — public ingress to APIM.
 - **Log Analytics** — diagnostics for APIM and App Gateway.
 - **BCGov Entra JWT validation** — a global APIM policy validates that every inbound
@@ -22,7 +22,6 @@ Request routing:
 
 ```
 /{tenant}/{product}/graphql/{endpoint-name}  → Fabric GraphQL endpoint
-/{tenant}/{product}/sql/{endpoint-name}      → Fabric SQL Analytics endpoint
 ```
 
 ## Repository layout

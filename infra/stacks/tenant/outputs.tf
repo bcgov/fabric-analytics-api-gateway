@@ -12,26 +12,11 @@ output "graphql_api_paths" {
   }
 }
 
-output "sql_api_paths" {
-  description = "Map of deployed SQL Analytics API paths keyed by API name"
-  value = {
-    for key, api in azurerm_api_management_api.sql : key => api.path
-  }
-}
-
 output "graphql_backend_urls" {
   description = "Map of deployed GraphQL backend URLs keyed by backend name"
   sensitive   = true # Fabric endpoint URLs — redacted (sensitive choice)
   value = {
     for key, backend in azurerm_api_management_backend.graphql : key => backend.url
-  }
-}
-
-output "sql_backend_urls" {
-  description = "Map of deployed SQL Analytics backend URLs keyed by backend name"
-  sensitive   = true # Fabric endpoint URLs — redacted (sensitive choice)
-  value = {
-    for key, backend in azurerm_api_management_backend.sql : key => backend.url
   }
 }
 
@@ -52,10 +37,3 @@ output "graphql_endpoint_urls" {
   }
 }
 
-output "sql_endpoint_urls" {
-  description = "Client-facing APIM URL for each Fabric SQL Analytics endpoint, keyed by endpoint. Call these through APIM (the Fabric backend stays hidden)."
-  value = {
-    for key, b in local.sql_backends :
-    key => "${data.terraform_remote_state.shared.outputs.apim_gateway_url}/${b.tenant_key}/${b.product_key}/sql/${b.endpoint.name}"
-  }
-}

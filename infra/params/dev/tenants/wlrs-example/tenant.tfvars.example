@@ -6,7 +6,7 @@
 #
 # URL patterns produced:
 #   POST /wlrs/fish-wildlife/graphql/faunal-data       → Fabric GraphQL
-#   POST /wlrs/fish-wildlife/sql/reporting             → Fabric SQL Analytics
+#   POST /wlrs/fish-wildlife/graphql/habitat-index     → Fabric GraphQL
 #   POST /wlrs/water-licensing/graphql/permits-api     → Fabric GraphQL
 # ============================================================
 
@@ -38,14 +38,6 @@ tenants = {
             description = "Critical habitat index GraphQL API"
           }
         ]
-
-        sql_analytics_endpoints = [
-          {
-            name        = "reporting"
-            backend_url = "https://WORKSPACE-ID-1.datawarehouse.fabric.microsoft.com"
-            description = "Fish and wildlife reporting data warehouse"
-          }
-        ]
       }
 
       # ------------------------------------------------------------------
@@ -62,8 +54,6 @@ tenants = {
             description = "Water licence and permit GraphQL API"
           }
         ]
-
-        sql_analytics_endpoints = []
       }
     }
   }

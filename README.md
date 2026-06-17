@@ -1,8 +1,8 @@
 # fabric-analytics-api-gateway
 
 Terraform IaC that stands up an Azure-native API gateway in front of Microsoft
-Fabric, exposing Fabric **GraphQL** and **SQL Analytics** endpoints through a
-managed, authenticated edge.
+Fabric, exposing Fabric **GraphQL** endpoints through a managed, authenticated
+edge.
 
 ```
 Client ──HTTPS──▶ Application Gateway (WAF_v2) ──▶ API Management (StandardV2) ──▶ Microsoft Fabric
@@ -12,7 +12,7 @@ Client ──HTTPS──▶ Application Gateway (WAF_v2) ──▶ API Managemen
 ```
 
 - **Application Gateway + WAF policy** — public ingress, TLS termination, OWASP WAF.
-- **API Management (StandardV2)** — fronts Fabric GraphQL & SQL Analytics endpoints.
+- **API Management (StandardV2)** — fronts Fabric GraphQL endpoints.
 - **Log Analytics** — diagnostics for APIM and App Gateway.
 - **Global JWT validation** — an APIM global policy validates that every inbound
   `Authorization: Bearer` token is issued by the BCGov Entra tenant, then forwards
@@ -22,8 +22,11 @@ Client ──HTTPS──▶ Application Gateway (WAF_v2) ──▶ API Managemen
 
 ```
 /{tenant}/{product}/graphql/{endpoint-name}  → Fabric GraphQL endpoint
-/{tenant}/{product}/sql/{endpoint-name}      → Fabric SQL Analytics endpoint
 ```
+
+> SQL Analytics endpoints are **not** exposed here — they use the TDS protocol
+> (TCP 1433), not HTTP, so they can't be proxied by an HTTP gateway. Use direct
+> TDS connections over Azure Private Link instead.
 
 ## Repository layout
 
@@ -134,7 +137,7 @@ tflint --recursive
 ## Further reading
 
 - [docs/managing-tenants.md](docs/managing-tenants.md) — add a tenant, or add/update
-  GraphQL and SQL Analytics endpoints.
+  GraphQL endpoints.
 - [docs/client-authentication.md](docs/client-authentication.md) — how callers acquire
   a token: Entra service principal (non-Azure workloads) and managed identity (Azure
   workloads).
