@@ -1,0 +1,76 @@
+name: .Infra Lint
+
+on:
+  workflow_call:
+    inputs:
+      terraform_root:
+        description: Terraform root directory to validate
+        required: false
+        default: infra
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-lint:
+    name: Terraform Format and Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Terraform fmt check
+        shell: bash
+        run: terraform fmt -check -recursive "${{ inputs.terraform_root }}"
+
+      - name: Terraform validate (per stack)
+        shell: bash
+        working-directory: ${{ inputs.terraform_root }}
+        run: |
+          set -euo pipefail
+          for stack in stacks/shared stacks/tenant; do
+            echo "::group::validate $stack"
+            terraform -chdir="$stack" init -backend=false -input=false
+            terraform -chdir="$stack" validate
+            echo "::endgroup::"
+          done
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+
+      - name: TFLint
+        shell: bash
+        working-directory: ${{ inputs.terraform_root }}
+        run: |
+          set -euo pipefail
+          tflint --init
+          # Surface all findings; fail the build only on errors. Pre-existing
+          # terraform_unused_declarations warnings stem from a single shared.tfvars
+          # being passed to both stacks (tracked for a params-split follow-up).
+          tflint --recursive --minimum-failure-severity=error
+
+      - name: Bash parse check
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' script; do
+            echo "Parsing: $script"
+            bash -n "$script"
+          done < <(find "${{ inputs.terraform_root }}" -type f -name '*.sh' -print0)
+
+      - name: Run script test suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for script in "${{ inputs.terraform_root }}"/scripts/*.sh; do
+            chmod +x "$script"
+          done
+          for test in "${{ inputs.terraform_root }}"/scripts/*.test.sh; do
+            echo "Running: $test"
+            bash "$test"
+          done

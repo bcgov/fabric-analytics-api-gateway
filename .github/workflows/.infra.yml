@@ -1,0 +1,66 @@
+name: Terraform
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: Deployment environment name
+        required: true
+        type: string
+      command:
+        description: Terraform wrapper command to run
+        required: true
+        default: plan
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.command }} (${{ inputs.environment_name }})
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Make wrapper executable
+        shell: bash
+        run: chmod +x ./infra/scripts/deploy-terraform.sh
+
+      - name: Terraform command
+        shell: bash
+        env:
+          CI: "true"
+          TF_VAR_app_env: ${{ inputs.environment_name }}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_use_oidc: "true"
+          TF_VAR_bcgov_entra_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER_NAME: ${{ vars.BACKEND_CONTAINER_NAME || 'tfstate' }}
+          # Tenant tfvars live as blobs in the state storage account (public data
+          # plane) — keeps Fabric endpoints out of the repo and GitHub secrets.
+          TENANT_CONFIG_CONTAINER: ${{ vars.TENANT_CONFIG_CONTAINER || 'tenant-config' }}
+          INPUT_COMMAND: ${{ inputs.command }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment_name }}
+
+        run: |
+          set -euo pipefail
+          ./infra/scripts/deploy-terraform.sh "$INPUT_COMMAND" "$INPUT_ENVIRONMENT"

@@ -1,0 +1,34 @@
+name: Infra PR
+
+on:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: infra-pr-${{ github.event.pull_request.number }}
+  # Do NOT cancel an in-flight run: this workflow runs `apply`, and cancelling
+  # Terraform mid-apply strands the backend state lock (an infinite-duration
+  # blob lease that never auto-expires), blocking every subsequent run. Queue
+  # new pushes behind the running apply instead.
+  cancel-in-progress: false
+
+jobs:
+  lint:
+    permissions:
+      contents: read
+    # no forks allowed
+    if: (!github.event.pull_request.head.repo.fork)
+    uses: ./.github/workflows/.infra-lint.yml
+
+  apply:
+    permissions:
+      id-token: write # required for requesting the OIDC JWT
+      contents: read # required for actions/checkout
+    needs: [lint]
+    if: (!github.event.pull_request.head.repo.fork)
+    uses: ./.github/workflows/.infra.yml
+    with:
+      environment_name: test
+      command: destroy # destroy for the time being when it is being proved out.
+    secrets: inherit

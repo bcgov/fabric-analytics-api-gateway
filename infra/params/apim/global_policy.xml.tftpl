@@ -1,0 +1,53 @@
+<policies>
+  <inbound>
+%{ if front_door_enabled ~}
+    <!--
+      Origin lock — accept traffic ONLY from our Azure Front Door.
+      Front Door injects X-Azure-FDID with its Front Door ID on every request.
+      {{frontdoor-id}} is an APIM Named Value set by Terraform to our profile's
+      ID, so requests that bypass Front Door (or come via someone else's AFD)
+      are rejected with 403.
+    -->
+    <check-header name="X-Azure-FDID" failed-check-httpcode="403" failed-check-error-message="Forbidden — requests must arrive through the gateway Front Door" ignore-case="true">
+      <value>{{frontdoor-id}}</value>
+    </check-header>
+%{ endif ~}
+    <!-- Set correlation ID for request tracing -->
+    <set-header name="x-ms-correlation-request-id" exists-action="skip">
+        <value>@(context.RequestId.ToString())</value>
+    </set-header>
+    <!--
+      Global JWT validation — applied to ALL APIs in this APIM instance.
+      Every inbound request must carry a valid BCGov Entra Bearer token.
+      Fabric performs its own authorization once the token is forwarded.
+
+      {{bcgov-entra-tenant-id}} is an APIM Named Value set by Terraform.
+    -->
+    <validate-jwt header-name="Authorization"
+                  failed-validation-httpcode="401"
+                  failed-validation-error-message="Unauthorized — a valid BCGov Entra ID token is required">
+      <openid-config url="https://login.microsoftonline.com/{{bcgov-entra-tenant-id}}/v2.0/.well-known/openid-configuration" />
+      <!--
+        Accept BOTH v1.0 and v2.0 token issuers for the tenant. Fabric / Power BI
+        tokens (aud = analysis.windows.net/powerbi/api) are issued as v1.0 with the
+        sts.windows.net issuer; without this, APIM validates iss against only the
+        v2.0 metadata issuer and rejects valid v1.0 tokens with 401.
+      -->
+      <issuers>
+        <issuer>https://sts.windows.net/{{bcgov-entra-tenant-id}}/</issuer>
+        <issuer>https://login.microsoftonline.com/{{bcgov-entra-tenant-id}}/v2.0</issuer>
+      </issuers>
+    </validate-jwt>
+  </inbound>
+  <backend>
+    <!-- At the global (service) scope there is no parent policy, so <base/> is
+         illegal here; <forward-request/> performs the default backend forward. -->
+    <forward-request />
+  </backend>
+  <outbound>
+    <!-- Strip server fingerprinting headers -->
+    <set-header name="X-Powered-By" exists-action="delete" />
+    <set-header name="X-AspNet-Version" exists-action="delete" />
+  </outbound>
+  <on-error />
+</policies>
